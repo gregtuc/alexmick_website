@@ -33,4 +33,57 @@ window.addEventListener('scroll', () => {
     } else {
         navbar.style.backgroundColor = 'var(--background-color)';
     }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Newsletter form functionality
+    const newsletterForm = document.querySelector('.newsletter-form');
+    if (newsletterForm) {
+        newsletterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = this.querySelector('input[type="email"]').value;
+            alert('Thank you for subscribing with: ' + email);
+            this.reset();
+        });
+    }
+
+    // Simple slider functionality
+    const prevArrow = document.querySelector('.nav-arrow:first-child');
+    const nextArrow = document.querySelector('.nav-arrow:last-child');
+    const musicItems = document.querySelectorAll('.music-item');
+    let currentIndex = 0;
+
+    // Initialize display
+    updateDisplay();
+
+    // Event listeners for navigation arrows
+    if (prevArrow && nextArrow) {
+        prevArrow.addEventListener('click', function(e) {
+            e.preventDefault();
+            currentIndex = (currentIndex - 1 + musicItems.length) % musicItems.length;
+            updateDisplay();
+        });
+
+        nextArrow.addEventListener('click', function(e) {
+            e.preventDefault();
+            currentIndex = (currentIndex + 1) % musicItems.length;
+            updateDisplay();
+        });
+    }
+
+    function updateDisplay() {
+        // Hide all items first
+        musicItems.forEach(item => {
+            item.style.display = 'none';
+        });
+
+        // Show current and next item if available
+        if (musicItems[currentIndex]) {
+            musicItems[currentIndex].style.display = 'block';
+        }
+        
+        if (musicItems[(currentIndex + 1) % musicItems.length]) {
+            musicItems[(currentIndex + 1) % musicItems.length].style.display = 'block';
+        }
+    }
 }); 

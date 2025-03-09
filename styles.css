@@ -11,8 +11,9 @@
 }
 
 :root {
-    --text-color: #000000;
-    --background-color: #ffffff;
+    --text-color: #ffffff;
+    --background-color: #000000;
+    --accent-color: #ffffff;
 }
 
 body {
@@ -39,7 +40,6 @@ body {
     font-family: 'UglyDave', monospace;
     font-size: 1rem;
     font-weight: normal;
-    text-transform: uppercase;
     letter-spacing: 0.1em;
 }
 
@@ -59,13 +59,10 @@ body {
 
 /* Main Content */
 .main-content {
-    min-height: 100vh;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 2rem;
-    text-align: center;
+    min-height: 100vh;
 }
 
 .title {
@@ -74,6 +71,8 @@ body {
     margin-bottom: 1rem;
     font-weight: normal;
     position: relative;
+    z-index: 10;
+    padding: 2rem;
 }
 
 .title::after {
@@ -86,59 +85,191 @@ body {
     50% { opacity: 0; }
 }
 
-.subtitle {
-    font-size: 1.5rem;
-    margin-bottom: 2rem;
-    font-weight: normal;
+/* Photo Hero Section */
+.hero {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 5rem 2rem;
 }
 
-/* Project Grid */
-.projects-grid {
+.featured-image {
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    display: block;
+}
+
+/* Music Grid */
+.music-grid {
+    display: flex;
+    flex-wrap: wrap;
     gap: 2rem;
     padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    justify-content: center;
 }
 
-.project-item {
-    aspect-ratio: 1;
-    background: #f5f5f5;
+.music-item {
+    position: relative;
+    width: calc(50% - 1rem);
+    overflow: hidden;
+    background: #1a1a1a;
+}
+
+.music-item img {
+    width: 100%;
+    display: block;
+    transition: opacity 0.3s;
+}
+
+.music-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.7);
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+}
+
+.music-title {
+    font-family: 'UglyDave', monospace;
     font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.listen-btn {
+    display: inline-block;
+    padding: 0.5rem 2rem;
+    background: #ffffff;
+    color: #000000;
+    text-decoration: none;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    margin-top: 1rem;
+    transition: all 0.3s;
+}
+
+.listen-btn:hover {
+    background: #cccccc;
+}
+
+/* Newsletter */
+.newsletter {
+    background: #000000;
+    padding: 4rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    border-top: 1px solid #333;
+}
+
+.newsletter h2 {
+    font-family: 'UglyDave', monospace;
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    text-transform: uppercase;
+}
+
+.newsletter-form {
+    display: flex;
+    max-width: 600px;
+    width: 100%;
+    position: relative;
+}
+
+.newsletter-input {
+    flex: 1;
+    padding: 1rem;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #ffffff;
+    color: #ffffff;
+    font-size: 1rem;
+}
+
+.newsletter-input::placeholder {
+    color: #666666;
+}
+
+.newsletter-submit {
+    background: none;
+    border: none;
+    color: #ffffff;
+    font-size: 1.5rem;
+    cursor: pointer;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.terms-link {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    color: #666666;
+    text-decoration: none;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    transition: opacity 0.3s ease;
 }
 
-.project-item:hover {
-    opacity: 0.8;
+.terms-link:hover {
+    color: #ffffff;
 }
 
-/* Footer */
+/* Slider Navigation */
+.slider-nav {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    margin-top: 2rem;
+}
+
+.nav-arrow {
+    font-size: 2rem;
+    color: var(--text-color);
+    cursor: pointer;
+    text-decoration: none;
+}
+
 footer {
     padding: 2rem;
     text-align: center;
     font-size: 0.8rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    color: #666666;
+    border-top: 1px solid #333;
 }
 
-/* Mobile Styles */
+/* Media Queries */
 @media (max-width: 768px) {
     .title {
         font-size: 2.5rem;
     }
     
-    .subtitle {
-        font-size: 1.2rem;
+    .music-item {
+        width: 100%;
     }
     
     .nav-links {
         display: none;
+    }
+    
+    .newsletter-form {
+        flex-direction: column;
+    }
+    
+    .newsletter-submit {
+        position: static;
+        transform: none;
+        margin-top: 1rem;
     }
 } 
