@@ -516,6 +516,10 @@
         let comet = null;
         let kermitActive = false;
         let kermit = null;
+        let rocketActive = false;
+        let rocket = null;
+        let explosionActive = false;
+        let explosion = null;
         let frame = 0;
         let frameCount = 0;
         
@@ -541,6 +545,10 @@
             // Create Kermit flying through space (rare)
             setTimeout(createSpaceKermit, 12000); // First one after 12 seconds
             setInterval(createSpaceKermit, 45000); // Then every 45 seconds
+            
+            // Create rocket with explosion (very rare)
+            setTimeout(createRocket, 20000); // First one after 20 seconds
+            setInterval(createRocket, 60000); // Then every 60 seconds
         }
         
         function createPlanets() {
@@ -668,6 +676,72 @@
             };
             
             kermitActive = true;
+        }
+        
+        // Create a tiny pixel rocket
+        function createRocket() {
+            // Only one at a time
+            if (rocketActive || explosionActive) return;
+            
+            // Create a rocket that flies across
+            const startSide = Math.random() > 0.5 ? "left" : "right";
+            const startY = Math.random() * (canvas.height * 0.6) + canvas.height * 0.2;
+            
+            rocket = {
+                startX: startSide === "left" ? -20 : canvas.width + 20,
+                startY: startY,
+                endX: startSide === "left" ? canvas.width * 0.7 : canvas.width * 0.3,
+                currentX: startSide === "left" ? -20 : canvas.width + 20,
+                currentY: startY,
+                movingRight: startSide === "left",
+                progress: 0,
+                speed: 0.004, // Fast movement
+                wobbleFrequency: 0.2,
+                wobbleAmplitude: 5,
+                engineFlicker: 0,
+                active: true
+            };
+            
+            rocketActive = true;
+        }
+        
+        // Create explosion
+        function createExplosion(x, y) {
+            // Set up explosion at rocket position
+            explosion = {
+                x: x,
+                y: y,
+                particles: [],
+                startTime: frameCount,
+                duration: 60, // Animation frames
+                active: true
+            };
+            
+            // Create explosion particles
+            const particleCount = 20;
+            const colors = ['white', 'rgb(255, 200, 50)', 'rgb(255, 100, 50)'];
+            
+            for (let i = 0; i < particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 0.5 + Math.random() * 1.5;
+                const size = Math.random() > 0.7 ? 2 : 1;
+                const lifespan = 30 + Math.floor(Math.random() * 30);
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                
+                explosion.particles.push({
+                    x: x,
+                    y: y,
+                    velocityX: Math.cos(angle) * speed,
+                    velocityY: Math.sin(angle) * speed,
+                    size: size,
+                    lifespan: lifespan,
+                    color: color
+                });
+            }
+            
+            explosionActive = true;
+            rocketActive = false;
+            rocket = null;
         }
         
         function drawPlanets() {
@@ -869,6 +943,119 @@
             ctx.restore();
         }
         
+        // Draw a tiny pixel rocket
+        function drawRocket() {
+            if (!rocketActive || !rocket) return;
+            
+            // Update rocket position
+            rocket.progress += rocket.speed;
+            rocket.engineFlicker = (rocket.engineFlicker + 1) % 4;
+            
+            if (rocket.progress >= 1) {
+                // When it reaches destination, create explosion
+                createExplosion(rocket.currentX, rocket.currentY);
+                return;
+            }
+            
+            // Calculate current position with a slight wobble
+            const wobbleFactor = Math.sin(rocket.progress * Math.PI * rocket.wobbleFrequency * 10) * rocket.wobbleAmplitude;
+            
+            rocket.currentX = rocket.startX + (rocket.endX - rocket.startX) * rocket.progress;
+            rocket.currentY = rocket.startY + wobbleFactor;
+            
+            const x = Math.floor(rocket.currentX);
+            const y = Math.floor(rocket.currentY);
+            
+            // Draw rocket
+            ctx.save();
+            ctx.translate(x, y);
+            
+            const flip = rocket.movingRight ? 1 : -1;
+            
+            // Rocket body (silver/white)
+            ctx.fillStyle = 'rgb(220, 220, 220)';
+            ctx.fillRect(flip * 0, 0, flip * 6, 3);
+            
+            // Rocket nose
+            ctx.fillStyle = 'rgb(180, 180, 180)';
+            ctx.fillRect(flip * 6, 0, flip * 2, 3);
+            
+            // Rocket fins
+            ctx.fillStyle = 'rgb(150, 150, 150)';
+            ctx.fillRect(flip * 0, -1, flip * 2, 1); // Top fin
+            ctx.fillRect(flip * 0, 3, flip * 2, 1);  // Bottom fin
+            
+            // Engine exhaust (animated)
+            const exhaustColors = [
+                'rgb(255, 50, 50)',     // Red
+                'rgb(255, 150, 50)',    // Orange
+                'rgb(255, 200, 100)',   // Yellow
+                'rgba(255, 150, 50, 0.7)' // Faded orange
+            ];
+            
+            // Randomly sized exhaust - flicker effect
+            const exhaustLength = 2 + (rocket.engineFlicker % 2);
+            ctx.fillStyle = exhaustColors[rocket.engineFlicker];
+            
+            // Draw exhaust on the correct side based on direction
+            if (rocket.movingRight) {
+                ctx.fillRect(-exhaustLength, 1, exhaustLength, 1);
+            } else {
+                ctx.fillRect(8, 1, exhaustLength, 1);
+            }
+            
+            ctx.restore();
+        }
+        
+        // Draw explosion particles
+        function drawExplosion() {
+            if (!explosionActive || !explosion) return;
+            
+            // Check if explosion animation should end
+            const explosionAge = frameCount - explosion.startTime;
+            if (explosionAge > explosion.duration) {
+                explosionActive = false;
+                explosion = null;
+                return;
+            }
+            
+            // Update and draw each particle
+            let activeParticles = 0;
+            
+            explosion.particles.forEach(particle => {
+                // Skip if particle has exceeded its lifespan
+                if (explosionAge > particle.lifespan) return;
+                
+                activeParticles++;
+                
+                // Update position
+                particle.x += particle.velocityX;
+                particle.y += particle.velocityY;
+                
+                // Make particles slow down over time
+                particle.velocityX *= 0.95;
+                particle.velocityY *= 0.95;
+                
+                // Draw particle
+                ctx.fillStyle = particle.color;
+                ctx.globalAlpha = 1 - (explosionAge / particle.lifespan);
+                ctx.fillRect(
+                    Math.floor(particle.x),
+                    Math.floor(particle.y),
+                    particle.size,
+                    particle.size
+                );
+            });
+            
+            ctx.globalAlpha = 1.0;
+            
+            // If no active particles, end the explosion
+            if (activeParticles === 0) {
+                explosionActive = false;
+                explosion = null;
+            }
+        }
+        
         function drawStars() {
             frameCount++;
             
@@ -928,6 +1115,12 @@
             
             // Update and draw Kermit
             drawSpaceKermit();
+            
+            // Update and draw rocket
+            drawRocket();
+            
+            // Update and draw explosion
+            drawExplosion();
             
             // Request next frame
             requestAnimationFrame(drawStars);
