@@ -89,12 +89,12 @@ body {
     height: 100vh;
     position: relative;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: 0;
     margin-bottom: 0;
     overflow: hidden;
-    background-color: var(--background-color);
 }
 
 .featured-image {
@@ -107,35 +107,50 @@ body {
 
 /* Music Grid */
 .music-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2rem;
-    padding: 2rem;
+    position: relative;
     max-width: 1200px;
     margin: 0 auto;
-    justify-content: center;
+    padding: 4rem 2rem;
 }
 
-.music-item {
-    position: relative;
-    width: calc(50% - 1rem);
+/* Carousel */
+.carousel-wrapper {
+    width: 100%;
     overflow: hidden;
-    background: #1a1a1a;
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+    cursor: grab;
 }
 
-.music-item img {
+.carousel-wrapper:active {
+    cursor: grabbing;
+}
+
+.carousel-slides {
+    display: flex;
+    transition: transform 0.4s ease;
+}
+
+.carousel-slide {
+    flex: 0 0 50%; /* Each slide takes exactly 50% width (showing 2 at once) */
+    box-sizing: border-box;
+    padding: 0 10px;
+    user-select: none;
+}
+
+.carousel-slide img {
     width: 100%;
     display: block;
-    transition: opacity 0.3s;
+    border: 15px solid #1a1a1a;
+    box-sizing: border-box;
 }
 
 .music-info {
-    position: absolute;
-    bottom: 0;
-    left: 0;
+    position: relative;
     width: 100%;
     padding: 1rem;
-    background: rgba(0, 0, 0, 0.7);
+    background: #1a1a1a;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -143,22 +158,23 @@ body {
 
 .music-title {
     font-family: 'UglyDave', monospace;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     margin-bottom: 0.5rem;
     text-align: center;
 }
 
 .listen-btn {
     display: inline-block;
-    padding: 0.5rem 2rem;
+    padding: 0.5rem 1.5rem;
     background: #ffffff;
     color: #000000;
     text-decoration: none;
     text-transform: uppercase;
     font-weight: bold;
     letter-spacing: 0.1em;
-    margin-top: 1rem;
+    margin-top: 0.5rem;
     transition: all 0.3s;
+    font-size: 0.8rem;
 }
 
 .listen-btn:hover {
@@ -168,12 +184,12 @@ body {
 /* Newsletter */
 .newsletter {
     background: #000000;
-    padding: 4rem 2rem;
+    padding: 3rem 2rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    border-top: 1px solid #333;
+    margin-bottom: 3rem;
 }
 
 .newsletter h2 {
@@ -235,13 +251,47 @@ body {
     justify-content: space-between;
     padding: 1rem 2rem;
     margin-top: 2rem;
+    width: 100%;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .nav-arrow {
-    font-size: 2rem;
+    font-size: 2.5rem;
     color: var(--text-color);
     cursor: pointer;
-    text-decoration: none;
+    background: none;
+    border: none;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease;
+    outline: none;
+    z-index: 100;
+    opacity: 1;
+}
+
+.nav-arrow:hover {
+    opacity: 0.7;
+}
+
+.prev-arrow {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 100;
+}
+
+.next-arrow {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 100;
 }
 
 footer {
@@ -275,4 +325,89 @@ footer {
         transform: none;
         margin-top: 1rem;
     }
+}
+
+/* Modal Popup */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    position: relative;
+    background-color: #000;
+    max-width: 800px;
+    width: 90%;
+    border: 1px solid #333;
+    padding: 0;
+}
+
+.modal-header {
+    display: flex;
+    border-bottom: 1px solid #333;
+    padding: 0;
+}
+
+.modal-email-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 20px;
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.modal-submit-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 2rem;
+    padding: 0 20px;
+    cursor: pointer;
+}
+
+.modal-toggle {
+    padding: 10px 20px;
+    margin-top: 10px;
+    cursor: pointer;
+}
+
+.modal-toggle span {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.modal-body {
+    padding: 20px;
+    max-width: 100%;
+}
+
+.modal-body p {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: #fff;
+    margin-bottom: 20px;
+}
+
+.modal-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: #fff;
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 2001;
 } 

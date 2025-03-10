@@ -47,43 +47,41 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Simple slider functionality
-    const prevArrow = document.querySelector('.nav-arrow:first-child');
-    const nextArrow = document.querySelector('.nav-arrow:last-child');
-    const musicItems = document.querySelectorAll('.music-item');
+    // Simple visibility toggle for carousel
+    const prevButton = document.querySelector('.prev-arrow');
+    const nextButton = document.querySelector('.next-arrow');
+    const musicItems = Array.from(document.querySelectorAll('.music-item'));
+    
+    if (musicItems.length === 0) {
+        return;
+    }
+    
     let currentIndex = 0;
-
-    // Initialize display
-    updateDisplay();
-
-    // Event listeners for navigation arrows
-    if (prevArrow && nextArrow) {
-        prevArrow.addEventListener('click', function(e) {
-            e.preventDefault();
+    
+    // Set initial visibility
+    updateVisibility();
+    
+    // Add button event listeners
+    if (prevButton && nextButton) {
+        prevButton.addEventListener('click', function() {
             currentIndex = (currentIndex - 1 + musicItems.length) % musicItems.length;
-            updateDisplay();
+            updateVisibility();
         });
-
-        nextArrow.addEventListener('click', function(e) {
-            e.preventDefault();
+        
+        nextButton.addEventListener('click', function() {
             currentIndex = (currentIndex + 1) % musicItems.length;
-            updateDisplay();
+            updateVisibility();
         });
     }
-
-    function updateDisplay() {
-        // Hide all items first
-        musicItems.forEach(item => {
-            item.style.display = 'none';
+    
+    function updateVisibility() {
+        // Show only the current item
+        musicItems.forEach((item, index) => {
+            const isCurrentOrNext = (index === currentIndex || index === (currentIndex + 1) % musicItems.length);
+            item.style.display = isCurrentOrNext ? 'block' : 'none';
         });
-
-        // Show current and next item if available
-        if (musicItems[currentIndex]) {
-            musicItems[currentIndex].style.display = 'block';
-        }
         
-        if (musicItems[(currentIndex + 1) % musicItems.length]) {
-            musicItems[(currentIndex + 1) % musicItems.length].style.display = 'block';
-        }
+        // Log which items are visible
+        console.log('Currently showing:', currentIndex, 'and', (currentIndex + 1) % musicItems.length);
     }
 }); 
