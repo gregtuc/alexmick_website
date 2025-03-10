@@ -30,17 +30,14 @@ body {
     top: 0;
     left: 0;
     width: 100%;
-    padding: 2rem;
+    padding: 0.5rem 2rem;
     display: flex;
     justify-content: space-between;
     z-index: 1000;
 }
 
-.nav-brand {
-    font-family: 'UglyDave', monospace;
-    font-size: 1rem;
-    font-weight: normal;
-    letter-spacing: 0.1em;
+.empty-brand {
+    width: 100px;
 }
 
 .nav-links {
@@ -63,16 +60,17 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    padding-top: 1rem; /* Further reduced to minimize space */
 }
 
 .title {
     font-family: 'UglyDave', monospace;
     font-size: 4rem;
-    margin-bottom: 1rem;
     font-weight: normal;
     position: relative;
     z-index: 10;
-    padding: 2rem;
+    padding: 0 2rem 0.25rem 2rem;
+    margin-bottom: 0;
 }
 
 .title::after {
@@ -92,7 +90,7 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 5rem 2rem;
+    padding: 0 2rem 2rem 2rem;
 }
 
 .featured-image {
