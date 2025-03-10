@@ -60,17 +60,17 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    padding-top: 1rem; /* Further reduced to minimize space */
+    padding-top: 0;
 }
 
 .title {
     font-family: 'UglyDave', monospace;
     font-size: 4rem;
     font-weight: normal;
-    position: relative;
+    position: absolute;
+    top: 3rem;
+    left: 3.5rem;
     z-index: 10;
-    padding: 0 2rem 0.25rem 2rem;
-    margin-bottom: 0;
 }
 
 .title::after {
@@ -86,17 +86,22 @@ body {
 /* Photo Hero Section */
 .hero {
     width: 100%;
+    height: 100vh;
+    position: relative;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 0 2rem 2rem 2rem;
+    padding: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+    background-color: var(--background-color);
 }
 
 .featured-image {
     width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
     display: block;
 }
 
