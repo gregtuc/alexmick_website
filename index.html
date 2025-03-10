@@ -6,6 +6,16 @@
     <title>alex mick</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- MailerLite Universal -->
+    <script>
+        (function(w,d,e,u,f,l,n){w[f]=w[f]||function(){(w[f].q=w[f].q||[])
+        .push(arguments)};l=d.createElement(e),l.async=1,l.src=u,
+        n=d.getElementsByTagName(e)[0],n.parentNode.insertBefore(l,n);})
+        (window,document,'script','https://assets.mailerlite.com/js/universal.js','ml');
+        ml('account', '1376781');
+    </script>
+    <!-- End MailerLite Universal -->
 </head>
 <body>
     <nav class="navbar">
@@ -19,15 +29,23 @@
             <img src="images /real.jpg" alt="alex mick featured" class="featured-image">
         </section>
         
-        <!-- Newsletter section moved here -->
+        <!-- Newsletter section - simple and functional -->
         <section class="newsletter">
             <h2>STAY UP TO DATE</h2>
-            <form class="newsletter-form">
-                <input type="email" placeholder="EMAIL ADDRESS" class="newsletter-input" required>
-                <button type="submit" class="newsletter-submit">
-                    <i class="fas fa-arrow-right"></i>
-                </button>
+            <form class="newsletter-form" id="newsletterForm">
+              <input type="email" class="newsletter-input" name="fields[email]" placeholder="EMAIL ADDRESS" required>
+              <button type="submit" class="newsletter-submit">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+              <input type="hidden" name="ml-submit" value="1">
+              <input type="hidden" name="anticsrf" value="true">
             </form>
+            <div id="thanksMessage" class="thanks-message" style="display: none;">
+              <h3>THANKS</h3>
+              <div class="waveform">
+                <span></span><span></span><span></span><span></span><span></span>
+              </div>
+            </div>
             <a href="#" class="terms-link" id="termsLink">TERMS</a>
         </section>
         
@@ -35,8 +53,8 @@
         <div id="termsModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <input type="email" placeholder="EMAIL ADDRESS" class="modal-email-input">
-                    <button class="modal-submit-btn">→</button>
+                    <input type="email" placeholder="EMAIL ADDRESS" class="modal-email-input" id="modalEmailInput">
+                    <button class="modal-submit-btn" id="modalSubmitBtn">→</button>
                 </div>
                 <div class="modal-body">
                     <p>
@@ -49,8 +67,8 @@
         
         <!-- Simple Slider using direct HTML/CSS -->
         <section class="music-grid">
-            <button class="nav-arrow prev-arrow" onclick="moveSlide(-1)">&#171;</button>
-            <button class="nav-arrow next-arrow" onclick="moveSlide(1)">&#187;</button>
+            <button class="nav-arrow prev-arrow" onclick="moveSlide(-1)"></button>
+            <button class="nav-arrow next-arrow" onclick="moveSlide(1)"></button>
             
             <div class="carousel-wrapper">
                 <div class="carousel-slides">
@@ -58,7 +76,7 @@
                         <img src="images /cover arts for songs/feelitnow.jpg" alt="Feel It Now">
                         <div class="music-info">
                             <h3 class="music-title">FEEL IT NOW</h3>
-                            <a href="#" class="listen-btn">GET IT NOW</a>
+                            <a href="https://ffm.to/alexmickfeelitnow" class="listen-btn" target="_blank">GET IT NOW</a>
                         </div>
                     </div>
                     
@@ -66,7 +84,7 @@
                         <img src="images /cover arts for songs/outthedoor.jpg" alt="Out The Door">
                         <div class="music-info">
                             <h3 class="music-title">OUT THE DOOR !</h3>
-                            <a href="#" class="listen-btn">GET IT NOW</a>
+                            <a href="https://ffm.to/outthedoorr" class="listen-btn" target="_blank">GET IT NOW</a>
                         </div>
                     </div>
                     
@@ -74,7 +92,7 @@
                         <img src="images /cover arts for songs/tthewaysheknows.jpg" alt="The Way She Knows">
                         <div class="music-info">
                             <h3 class="music-title">THE WAY SHE KNOWS</h3>
-                            <a href="#" class="listen-btn">GET IT NOW</a>
+                            <a href="https://ffm.to/thewaysheknows" class="listen-btn" target="_blank">GET IT NOW</a>
                         </div>
                     </div>
                 </div>
@@ -86,13 +104,36 @@
             <h2>LIVE</h2>
             <div class="tour-dates">
                 <div class="no-tour-message">
-                    alex mick is not on tour :(
+                    no live shows :(
                 </div>
             </div>
         </section>
     </main>
 
     <footer>
+        <div class="social-links">
+            <a href="https://www.facebook.com/alexmickmusic/" class="social-link" target="_blank" aria-label="Facebook">
+                <i class="fab fa-facebook-f"></i>
+            </a>
+            <a href="https://www.instagram.com/alexmickkk" class="social-link" target="_blank" aria-label="Instagram">
+                <i class="fab fa-instagram"></i>
+            </a>
+            <a href="https://www.youtube.com/channel/UCb-A1wIrSOucbJNvGO6Qgxw" class="social-link" target="_blank" aria-label="YouTube">
+                <i class="fab fa-youtube"></i>
+            </a>
+            <a href="https://open.spotify.com/artist/3HUqXl38FjsXO7Yk7AS7Pq" class="social-link" target="_blank" aria-label="Spotify">
+                <i class="fab fa-spotify"></i>
+            </a>
+            <a href="https://music.apple.com/ca/artist/alex-mick/1504628603" class="social-link" target="_blank" aria-label="Apple Music">
+                <i class="fab fa-apple"></i>
+            </a>
+            <a href="https://soundcloud.com/alexmickmusic" class="social-link" target="_blank" aria-label="SoundCloud">
+                <i class="fab fa-soundcloud"></i>
+            </a>
+            <a href="https://music.amazon.ca/artists/B09SD5XXL1" class="social-link" target="_blank" aria-label="Amazon Music">
+                <i class="fab fa-amazon"></i>
+            </a>
+        </div>
         <p>© 2024 alex mick</p>
     </footer>
 
@@ -101,11 +142,19 @@
         const termsLink = document.getElementById('termsLink');
         const termsModal = document.getElementById('termsModal');
         const closeModal = document.getElementById('closeModal');
+        const modalEmailInput = document.getElementById('modalEmailInput');
+        const modalSubmitBtn = document.getElementById('modalSubmitBtn');
         
         termsLink.addEventListener('click', function(e) {
             e.preventDefault();
             termsModal.style.display = 'flex';
             document.body.style.overflow = 'hidden'; // Prevent scrolling while modal is open
+            
+            // Copy email value if it exists
+            const newsletterInput = document.querySelector('.newsletter-input');
+            if (newsletterInput.value) {
+                modalEmailInput.value = newsletterInput.value;
+            }
         });
         
         closeModal.addEventListener('click', function() {
@@ -119,6 +168,57 @@
                 termsModal.style.display = 'none';
                 document.body.style.overflow = 'auto';
             }
+        });
+        
+        // Submit from modal
+        modalSubmitBtn.addEventListener('click', function() {
+            if (modalEmailInput.value) {
+                const newsletterInput = document.querySelector('.newsletter-input');
+                newsletterInput.value = modalEmailInput.value;
+                
+                // Hide modal
+                termsModal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+                
+                // Trigger the newsletter form submission
+                const submitEvent = new Event('submit', { cancelable: true });
+                newsletterForm.dispatchEvent(submitEvent);
+            }
+        });
+        
+        // Newsletter form submission
+        const newsletterForm = document.getElementById('newsletterForm');
+        const thanksMessage = document.getElementById('thanksMessage');
+        
+        newsletterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = this.querySelector('input[name="fields[email]"]').value;
+            const formData = new FormData();
+            formData.append('fields[email]', email);
+            formData.append('ml-submit', '1');
+            formData.append('anticsrf', 'true');
+            
+            fetch('https://assets.mailerlite.com/jsonp/1376781/forms/148452169007236918/subscribe', {
+                method: 'POST',
+                body: formData,
+                mode: 'no-cors'  // Because MailerLite API may not support CORS
+            })
+            .then(() => {
+                // Hide form
+                newsletterForm.style.display = 'none';
+                
+                // Show thanks message with a slight delay for better transition effect
+                setTimeout(() => {
+                    thanksMessage.style.display = 'block';
+                }, 300);
+                
+                // Reset form for future use (though it's hidden)
+                newsletterForm.reset();
+            })
+            .catch(error => {
+                console.error('Error submitting form:', error);
+            });
         });
         
         // Carousel Functionality remains unchanged
