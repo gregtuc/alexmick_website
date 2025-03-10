@@ -16,8 +16,36 @@
         ml('account', '1376781');
     </script>
     <!-- End MailerLite Universal -->
+    <style>
+        /* Inline static star background as fallback */
+        .stars-fallback {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="1" height="1" x="50" y="50" fill="white"/><rect width="1" height="1" x="100" y="150" fill="white"/><rect width="1" height="1" x="200" y="200" fill="white"/><rect width="1" height="1" x="300" y="50" fill="white"/><rect width="1" height="1" x="150" y="300" fill="white"/><rect width="1" height="1" x="250" y="350" fill="white"/><g><rect width="1" height="1" x="170" y="170" fill="white"/><rect width="1" height="1" x="169" y="170" fill="white"/><rect width="1" height="1" x="171" y="170" fill="white"/><rect width="1" height="1" x="170" y="169" fill="white"/><rect width="1" height="1" x="170" y="171" fill="white"/></g><g><rect width="1" height="1" x="370" y="270" fill="white"/><rect width="1" height="1" x="369" y="269" fill="white"/><rect width="1" height="1" x="371" y="271" fill="white"/><rect width="1" height="1" x="369" y="271" fill="white"/><rect width="1" height="1" x="371" y="269" fill="white"/></g></svg>');
+            background-repeat: repeat;
+            background-size: 400px 400px;
+            opacity: 0.7;
+            z-index: 1;
+            pointer-events: none;
+            animation: twinkle 2s infinite alternate;
+        }
+        
+        @keyframes twinkle {
+            0% { opacity: 0.7; }
+            100% { opacity: 0.9; }
+        }
+    </style>
 </head>
 <body>
+    <!-- Static star background fallback -->
+    <div class="stars-fallback"></div>
+    
+    <!-- Canvas star background -->
+    <canvas class="starry-bg" id="starryBackground"></canvas>
+    
     <nav class="navbar">
         <div class="empty-brand"></div>
         <!-- Navigation links removed -->
@@ -33,7 +61,7 @@
         <section class="newsletter">
             <h2>STAY UP TO DATE</h2>
             <form class="newsletter-form" id="newsletterForm">
-              <input type="email" class="newsletter-input" name="fields[email]" placeholder="EMAIL ADDRESS" required>
+              <input type="email" class="newsletter-input" name="fields[email]" placeholder="email address" required>
               <button type="submit" class="newsletter-submit">
                 <i class="fas fa-arrow-right"></i>
               </button>
@@ -46,7 +74,7 @@
                 <span></span><span></span><span></span><span></span><span></span>
               </div>
             </div>
-            <a href="#" class="terms-link" id="termsLink">TERMS</a>
+            <a href="#" class="terms-link" id="termsLink">terms</a>
         </section>
         
         <!-- Terms Popup Modal -->
@@ -72,7 +100,7 @@
                         <img src="images /cover arts for songs/feelitnow.jpg" alt="Feel It Now">
                         <div class="music-info">
                             <h3 class="music-title">FEEL IT NOW</h3>
-                            <a href="https://ffm.to/alexmickfeelitnow" class="listen-btn" target="_blank">GET IT NOW</a>
+                            <a href="https://ffm.to/alexmickfeelitnow" class="listen-btn" target="_blank">get it now</a>
                         </div>
                     </div>
                     
@@ -80,7 +108,7 @@
                         <img src="images /cover arts for songs/outthedoor.jpg" alt="Out The Door">
                         <div class="music-info">
                             <h3 class="music-title">OUT THE DOOR !</h3>
-                            <a href="https://ffm.to/outthedoorr" class="listen-btn" target="_blank">GET IT NOW</a>
+                            <a href="https://ffm.to/outthedoorr" class="listen-btn" target="_blank">get it now</a>
                         </div>
                     </div>
                     
@@ -88,7 +116,7 @@
                         <img src="images /cover arts for songs/tthewaysheknows.jpg" alt="The Way She Knows">
                         <div class="music-info">
                             <h3 class="music-title">THE WAY SHE KNOWS</h3>
-                            <a href="https://ffm.to/thewaysheknows" class="listen-btn" target="_blank">GET IT NOW</a>
+                            <a href="https://ffm.to/thewaysheknows" class="listen-btn" target="_blank">get it now</a>
                         </div>
                     </div>
                 </div>
@@ -461,6 +489,505 @@
                 nextArrow.style.pointerEvents = "auto";
             }
         }
+        
+        // Subtle starry background
+        const canvas = document.getElementById('starryBackground');
+        const ctx = canvas.getContext('2d');
+        
+        // KEEP STARS BEHIND CONTENT
+        canvas.style.zIndex = "0"; // Ensure canvas is behind all content
+        document.querySelector('.stars-fallback').style.zIndex = "-1";
+        
+        // Set canvas to full screen
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            // Recreate everything when resized
+            initializeEverything();
+        }
+        
+        // Star types and properties - GLOBALS
+        const stars = [];
+        const planets = [];
+        let starCount = 120; // REDUCED by 60%
+        let shootingStarActive = false;
+        let shootingStar = null;
+        let cometActive = false;
+        let comet = null;
+        let kermitActive = false;
+        let kermit = null;
+        let frame = 0;
+        let frameCount = 0;
+        
+        // MASTER INITIALIZATION FUNCTION
+        function initializeEverything() {
+            // Clear existing elements
+            stars.length = 0;
+            planets.length = 0;
+            
+            // Create subtle planets
+            createPlanets();
+            
+            // Create stars
+            createStars();
+            
+            // Schedule occasional shooting stars (much less frequent)
+            setInterval(createShootingStar, 15000); // REDUCED - only every 15 seconds
+            
+            // Create cow on comet (rare)
+            setTimeout(createCowComet, 5000); // First one after 5 seconds
+            setInterval(createCowComet, 30000); // Then every 30 seconds
+            
+            // Create Kermit flying through space (rare)
+            setTimeout(createSpaceKermit, 12000); // First one after 12 seconds
+            setInterval(createSpaceKermit, 45000); // Then every 45 seconds
+        }
+        
+        function createPlanets() {
+            // Subtle moon
+            planets.push({
+                x: Math.random() * (canvas.width * 0.6) + canvas.width * 0.2,
+                y: Math.random() * (canvas.height * 0.3) + 50,
+                size: 10,
+                color: 'rgb(180, 180, 180)',
+                name: 'Moon'
+            });
+            
+            // Yellowish planet
+            planets.push({
+                x: Math.random() * (canvas.width * 0.5) + 100,
+                y: Math.random() * (canvas.height * 0.5) + 150,
+                size: 6,
+                color: 'rgb(255, 200, 100)',
+                name: 'Jupiter'
+            });
+            
+            // Blue planet
+            planets.push({
+                x: Math.random() * (canvas.width * 0.7) + 80,
+                y: Math.random() * (canvas.height * 0.6) + 100,
+                size: 4,
+                color: 'rgb(150, 150, 255)',
+                name: 'Neptune'
+            });
+        }
+        
+        function createStars() {
+            for (let i = 0; i < starCount; i++) {
+                const starType = Math.random() > 0.9 ? (Math.random() > 0.5 ? 2 : 1) : 0;
+                
+                stars.push({
+                    x: Math.floor(Math.random() * canvas.width),
+                    y: Math.floor(Math.random() * canvas.height),
+                    type: starType,
+                    blinks: Math.random() > 0.85, // REDUCED to 15% stars blink (from 30%)
+                    pulses: Math.random() > 0.9, // REDUCED to 10% stars pulse (from 20%)
+                    visible: true,
+                    size: starType === 0 ? 1 : (starType === 1 ? 2 : 3)
+                });
+            }
+        }
+        
+        function createShootingStar() {
+            // Only create a new one if no shooting star is active
+            if (shootingStarActive) return;
+            
+            // Even more subtle shooting star
+            shootingStar = {
+                startX: Math.random() * canvas.width * 0.3,
+                startY: Math.random() * canvas.height * 0.2,
+                endX: canvas.width * (0.7 + Math.random() * 0.2),
+                endY: canvas.height * (0.6 + Math.random() * 0.3),
+                currentX: 0,
+                currentY: 0,
+                progress: 0,
+                speed: 0.004, // Slower
+                length: 15, // Shorter trail
+                width: 1,
+                active: true
+            };
+            
+            shootingStarActive = true;
+            shootingStar.currentX = shootingStar.startX;
+            shootingStar.currentY = shootingStar.startY;
+        }
+        
+        // Create a pixelated cow on a comet
+        function createCowComet() {
+            // Only one at a time
+            if (cometActive) return;
+            
+            // Create a comet with cow that travels in an elliptical path that stays toward edges
+            // Use more of the width and less of the height to avoid central content
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            // Make a wider ellipse so cow stays more to sides
+            const radiusX = canvas.width * 0.4; // Wider horizontally
+            const radiusY = canvas.height * 0.25; // Shorter vertically
+            
+            comet = {
+                centerX: centerX,
+                centerY: centerY,
+                radiusX: radiusX,
+                radiusY: radiusY,
+                angle: Math.random() * Math.PI * 2, // Random starting angle
+                speed: 0.0004 + Math.random() * 0.0003, // Slightly slower
+                spin: 0, // Current spin angle for the cow
+                spinSpeed: 0.08, // How fast the cow spins
+                size: 10, // Slightly larger comet (was 8)
+                active: true,
+                progress: 0
+            };
+            
+            cometActive = true;
+        }
+        
+        // Create a pixelated Kermit with space helmet
+        function createSpaceKermit() {
+            // Only one at a time
+            if (kermitActive) return;
+            
+            // Create Kermit that flies across the screen on a wavy path
+            const startSide = Math.random() > 0.5 ? "left" : "right";
+            const startY = Math.random() * (canvas.height * 0.7) + canvas.height * 0.15;
+            
+            kermit = {
+                startX: startSide === "left" ? -30 : canvas.width + 30,
+                startY: startY,
+                endX: startSide === "left" ? canvas.width + 30 : -30,
+                currentX: startSide === "left" ? -30 : canvas.width + 30,
+                currentY: startY,
+                movingRight: startSide === "left",
+                progress: 0,
+                speed: 0.0015, // Slow movement
+                waveFrequency: 0.1,
+                waveAmplitude: 20,
+                armAngle: 0,
+                active: true
+            };
+            
+            kermitActive = true;
+        }
+        
+        function drawPlanets() {
+            planets.forEach(planet => {
+                ctx.fillStyle = planet.color;
+                
+                // Draw pixelated planets
+                for (let y = 0; y < planet.size; y++) {
+                    for (let x = 0; x < planet.size; x++) {
+                        // Skip some pixels for pixelated look
+                        if (Math.random() > 0.8) continue;
+                        
+                        const distX = x - planet.size/2;
+                        const distY = y - planet.size/2;
+                        const dist = Math.sqrt(distX*distX + distY*distY);
+                        
+                        if (dist <= planet.size/2) {
+                            ctx.fillRect(
+                                Math.floor(planet.x + x - planet.size/2),
+                                Math.floor(planet.y + y - planet.size/2),
+                                1, 1
+                            );
+                        }
+                    }
+                }
+                
+                // Add planet name in tiny font
+                ctx.fillStyle = 'rgba(255,255,255,0.5)'; // Transparent white
+                ctx.font = '8px Arial';
+                ctx.fillText(planet.name, planet.x - 10, planet.y - planet.size/2 - 3);
+            });
+        }
+        
+        // Draw a pixelated cow on the comet
+        function drawCowOnComet() {
+            if (!cometActive || !comet) return;
+            
+            // Update comet position on its elliptical path
+            comet.angle += comet.speed;
+            comet.spin += comet.spinSpeed;
+            
+            // Calculate position - use elliptical path to stay more to sides
+            const x = comet.centerX + Math.cos(comet.angle) * comet.radiusX;
+            const y = comet.centerY + Math.sin(comet.angle) * comet.radiusY;
+            
+            // Draw comet tail (3-5 pixels trailing opposite to direction)
+            ctx.fillStyle = 'rgba(255, 220, 100, 0.7)';
+            const tailAngle = comet.angle - Math.PI; // Opposite direction
+            for (let i = 1; i <= 5; i++) {
+                const tailX = x + Math.cos(tailAngle) * i * 1.2;
+                const tailY = y + Math.sin(tailAngle) * i * 1.2;
+                
+                // Skip some pixels for pixelated effect
+                if (i % 2 === 0) {
+                    ctx.fillRect(Math.floor(tailX), Math.floor(tailY), 1, 1);
+                }
+            }
+            
+            // Draw comet body (3x3 pixel)
+            ctx.fillStyle = 'rgb(200, 200, 200)';
+            ctx.fillRect(Math.floor(x)-1, Math.floor(y)-1, 3, 3);
+            
+            // Draw a bigger pixel cow on top - rotating with the spin value
+            ctx.save();
+            ctx.translate(Math.floor(x), Math.floor(y));
+            ctx.rotate(comet.spin);
+            
+            // Pixelated cow body (white with black spots)
+            ctx.fillStyle = 'white';
+            ctx.fillRect(-4, -3, 9, 5); // 9x5 body (increased from 7x4)
+            
+            // Black spots
+            ctx.fillStyle = 'black';
+            ctx.fillRect(-3, 0, 2, 2); // larger spot
+            ctx.fillRect(1, -2, 3, 2);  // larger spot
+            
+            // Head
+            ctx.fillRect(-6, -3, 3, 4); // larger head
+            
+            ctx.restore();
+            
+            // Check if we've completed a full journey (one loop)
+            comet.progress += comet.speed;
+            if (comet.progress > Math.PI * 2) {
+                cometActive = false;
+                comet = null;
+            }
+        }
+        
+        // Draw a pixelated Kermit with space helmet
+        function drawSpaceKermit() {
+            if (!kermitActive || !kermit) return;
+            
+            // Update Kermit position on its path
+            kermit.progress += kermit.speed;
+            kermit.armAngle += 0.05; // Waving arms speed
+            
+            if (kermit.progress >= 1) {
+                kermitActive = false;
+                kermit = null;
+                return;
+            }
+            
+            // Calculate current position with a wavy motion
+            const totalDistance = Math.abs(kermit.endX - kermit.startX);
+            const waveFactor = Math.sin(kermit.progress * Math.PI * kermit.waveFrequency * 10) * kermit.waveAmplitude;
+            
+            kermit.currentX = kermit.startX + (kermit.endX - kermit.startX) * kermit.progress;
+            kermit.currentY = kermit.startY + waveFactor;
+            
+            const x = Math.floor(kermit.currentX);
+            const y = Math.floor(kermit.currentY);
+            
+            // Draw a thrusting effect (jet pack)
+            ctx.fillStyle = 'rgba(255, 100, 50, 0.7)';
+            for (let i = 1; i <= 4; i++) {
+                const jetX = kermit.movingRight ? x - 8 - i : x + 8 + i;
+                const jetY = y + Math.sin(frameCount * 0.3) * 2;
+                const jetWidth = Math.max(1, 4 - i);
+                
+                ctx.fillRect(
+                    jetX,
+                    jetY - 1,
+                    jetWidth,
+                    3
+                );
+            }
+            
+            // Save context for rotation/translation
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // Space helmet (transparent bubble)
+            ctx.fillStyle = 'rgba(200, 200, 255, 0.4)';
+            for (let helmetY = -9; helmetY <= 5; helmetY++) {
+                for (let helmetX = -7; helmetX <= 7; helmetX++) {
+                    // Make round helmet shape
+                    const dist = Math.sqrt(helmetX*helmetX + helmetY*helmetY);
+                    if (dist <= 9 && Math.random() > 0.3) {
+                        ctx.fillRect(helmetX, helmetY, 1, 1);
+                    }
+                }
+            }
+            
+            // Helmet rim
+            ctx.fillStyle = 'rgb(150, 150, 150)';
+            for (let rimX = -7; rimX <= 7; rimX++) {
+                if (Math.abs(rimX) > 4) {
+                    ctx.fillRect(rimX, 2, 1, 2);
+                }
+            }
+            ctx.fillRect(-7, 0, 1, 4);
+            ctx.fillRect(7, 0, 1, 4);
+            
+            // Draw Kermit's green head
+            ctx.fillStyle = 'rgb(40, 180, 90)'; // Kermit green
+            
+            // Head
+            for (let headY = -6; headY <= 1; headY++) {
+                for (let headX = -5; headX <= 5; headX++) {
+                    if (Math.sqrt(headX*headX + headY*headY) <= 6) {
+                        // Skip some pixels for texture
+                        if (Math.random() > 0.2) {
+                            ctx.fillRect(headX, headY, 1, 1);
+                        }
+                    }
+                }
+            }
+            
+            // Eyes (white part)
+            ctx.fillStyle = 'white';
+            ctx.fillRect(-3, -4, 2, 2);
+            ctx.fillRect(1, -4, 2, 2);
+            
+            // Pupils
+            ctx.fillStyle = 'black';
+            ctx.fillRect(-2, -4, 1, 1);
+            ctx.fillRect(2, -4, 1, 1);
+            
+            // Kermit's collar/neck
+            ctx.fillStyle = 'rgb(40, 180, 90)';
+            ctx.fillRect(-4, 1, 8, 2);
+            
+            // Mouth
+            ctx.fillStyle = 'rgb(200, 50, 50)';
+            ctx.fillRect(-3, 0, 6, 1);
+            
+            // Body
+            ctx.fillStyle = 'rgb(40, 180, 90)';
+            ctx.fillRect(-5, 3, 10, 5);
+            
+            // Arms - animated waving
+            const armWaveL = Math.sin(kermit.armAngle) * 3;
+            const armWaveR = Math.cos(kermit.armAngle) * 3;
+            
+            ctx.fillRect(-6, 4 + armWaveL, 2, 4);  // Left arm
+            ctx.fillRect(4, 4 + armWaveR, 2, 4);   // Right arm
+            
+            ctx.restore();
+        }
+        
+        function drawStars() {
+            frameCount++;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw planets
+            drawPlanets();
+            
+            // Update the frame for blinking - MUCH slower blink rate
+            frame = (frameCount % 120 < 60) ? 0 : 1; // SLOWER blink cycle (2 seconds instead of 1)
+            
+            // Draw all stars
+            ctx.fillStyle = 'white';
+            
+            stars.forEach(star => {
+                // Determine if star is visible this frame
+                let isVisible = true; // Default to visible
+                
+                if (star.blinks) {
+                    // For blinking stars, make the transition more subtle
+                    // Instead of fully disappearing, reduce opacity
+                    if (frameCount % 120 >= 60) {
+                        ctx.globalAlpha = 0.4; // Semi-transparent when "off" instead of invisible
+                    }
+                }
+                
+                // Draw different star types
+                if (star.type === 0) { // Simple dot
+                    let size = star.pulses && (frameCount % 240 < 120) ? 2 : 1; // SLOWER pulse (4 seconds instead of 2)
+                    ctx.fillRect(star.x, star.y, size, size);
+                } 
+                else if (star.type === 1) { // Plus
+                    ctx.fillRect(star.x, star.y, 1, 1);
+                    ctx.fillRect(star.x-1, star.y, 1, 1);
+                    ctx.fillRect(star.x+1, star.y, 1, 1);
+                    ctx.fillRect(star.x, star.y-1, 1, 1);
+                    ctx.fillRect(star.x, star.y+1, 1, 1);
+                }
+                else if (star.type === 2) { // X shape
+                    ctx.fillRect(star.x, star.y, 1, 1);
+                    ctx.fillRect(star.x+1, star.y+1, 1, 1);
+                    ctx.fillRect(star.x-1, star.y-1, 1, 1);
+                    ctx.fillRect(star.x-1, star.y+1, 1, 1);
+                    ctx.fillRect(star.x+1, star.y-1, 1, 1);
+                }
+                
+                // Reset opacity
+                ctx.globalAlpha = 1.0;
+            });
+            
+            // Update and draw shooting star animation
+            updateShootingStar();
+            
+            // Update and draw cow on comet
+            drawCowOnComet();
+            
+            // Update and draw Kermit
+            drawSpaceKermit();
+            
+            // Request next frame
+            requestAnimationFrame(drawStars);
+        }
+        
+        function updateShootingStar() {
+            if (!shootingStarActive || !shootingStar) return;
+            
+            // Update position
+            shootingStar.progress += shootingStar.speed;
+            
+            if (shootingStar.progress >= 1) {
+                shootingStarActive = false;
+                shootingStar = null;
+                return;
+            }
+            
+            // Calculate current position
+            shootingStar.currentX = shootingStar.startX + (shootingStar.endX - shootingStar.startX) * shootingStar.progress;
+            shootingStar.currentY = shootingStar.startY + (shootingStar.endY - shootingStar.startY) * shootingStar.progress;
+            
+            // Draw more subtle shooting star (reduced size)
+            ctx.fillStyle = 'white';
+            ctx.fillRect(Math.floor(shootingStar.currentX), Math.floor(shootingStar.currentY), 1, 1);
+            
+            // Draw trail
+            const trailLength = shootingStar.length;
+            const angleX = shootingStar.endX - shootingStar.startX;
+            const angleY = shootingStar.endY - shootingStar.startY;
+            const length = Math.sqrt(angleX * angleX + angleY * angleY);
+            const normalizedX = angleX / length;
+            const normalizedY = angleY / length;
+            
+            // Draw trail pixels (more sparse)
+            for (let i = 1; i <= trailLength; i++) {
+                const trailX = shootingStar.currentX - normalizedX * i;
+                const trailY = shootingStar.currentY - normalizedY * i;
+                
+                // Skip more pixels for a sparser trail
+                if (i % 3 === 0) {
+                    ctx.fillRect(Math.floor(trailX), Math.floor(trailY), 1, 1);
+                }
+            }
+        }
+        
+        // Initialize canvas size
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Start animation
+        drawStars();
+        
+        // Set a timeout to hide the fallback after canvas is working
+        setTimeout(() => {
+            const fallback = document.querySelector('.stars-fallback');
+            if (fallback) {
+                fallback.style.opacity = '0';
+                setTimeout(() => fallback.style.display = 'none', 1000);
+            }
+        }, 3000);
     </script>
 </body>
 </html> 
