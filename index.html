@@ -52,13 +52,9 @@
         <!-- Terms Popup Modal -->
         <div id="termsModal" class="modal">
             <div class="modal-content">
-                <div class="modal-header">
-                    <input type="email" placeholder="EMAIL ADDRESS" class="modal-email-input" id="modalEmailInput">
-                    <button class="modal-submit-btn" id="modalSubmitBtn">→</button>
-                </div>
                 <div class="modal-body">
                     <p>
-                        BY SUBMITTING MY INFORMATION, I AGREE TO RECEIVE PERSONALIZED UPDATES AND MARKETING MESSAGES ABOUT ALEX MICK BASED ON MY INFORMATION, INTERESTS, ACTIVITIES, WEBSITE VISITS AND DEVICE DATA AND IN ACCORDANCE WITH THE PRIVACY POLICY. I UNDERSTAND THAT I CAN OPT-OUT AT ANY TIME BY EMAILING PRIVACYPOLICY@WMG.COM.
+                        BY SUBMITTING MY INFORMATION, I AGREE TO RECEIVE PERSONALIZED UPDATES AND MARKETING MESSAGES ABOUT ALEX MICK BASED ON MY INFORMATION, INTERESTS, ACTIVITIES, WEBSITE VISITS AND DEVICE DATA AND IN ACCORDANCE WITH THE PRIVACY POLICY.
                     </p>
                 </div>
                 <button class="modal-close" id="closeModal">×</button>
@@ -102,10 +98,11 @@
         <!-- Tour section -->
         <section class="tour-section">
             <h2>LIVE</h2>
-            <div class="tour-dates">
-                <div class="no-tour-message">
+            <div class="tour-dates" id="tour-container">
+                <div class="no-tour-message" id="no-shows-message">
                     no live shows :(
                 </div>
+                <!-- Tour items will be dynamically inserted here -->
             </div>
         </section>
     </main>
@@ -121,7 +118,7 @@
             <a href="https://www.youtube.com/channel/UCb-A1wIrSOucbJNvGO6Qgxw" class="social-link" target="_blank" aria-label="YouTube">
                 <i class="fab fa-youtube"></i>
             </a>
-            <a href="https://open.spotify.com/artist/3HUqXl38FjsXO7Yk7AS7Pq" class="social-link" target="_blank" aria-label="Spotify">
+            <a href="https://open.spotify.com/artist/0WoFoQAvv1ul6lQKQaGu0b" class="social-link" target="_blank" aria-label="Spotify">
                 <i class="fab fa-spotify"></i>
             </a>
             <a href="https://music.apple.com/ca/artist/alex-mick/1504628603" class="social-link" target="_blank" aria-label="Apple Music">
@@ -142,19 +139,11 @@
         const termsLink = document.getElementById('termsLink');
         const termsModal = document.getElementById('termsModal');
         const closeModal = document.getElementById('closeModal');
-        const modalEmailInput = document.getElementById('modalEmailInput');
-        const modalSubmitBtn = document.getElementById('modalSubmitBtn');
         
         termsLink.addEventListener('click', function(e) {
             e.preventDefault();
             termsModal.style.display = 'flex';
             document.body.style.overflow = 'hidden'; // Prevent scrolling while modal is open
-            
-            // Copy email value if it exists
-            const newsletterInput = document.querySelector('.newsletter-input');
-            if (newsletterInput.value) {
-                modalEmailInput.value = newsletterInput.value;
-            }
         });
         
         closeModal.addEventListener('click', function() {
@@ -167,22 +156,6 @@
             if (e.target === termsModal) {
                 termsModal.style.display = 'none';
                 document.body.style.overflow = 'auto';
-            }
-        });
-        
-        // Submit from modal
-        modalSubmitBtn.addEventListener('click', function() {
-            if (modalEmailInput.value) {
-                const newsletterInput = document.querySelector('.newsletter-input');
-                newsletterInput.value = modalEmailInput.value;
-                
-                // Hide modal
-                termsModal.style.display = 'none';
-                document.body.style.overflow = 'auto';
-                
-                // Trigger the newsletter form submission
-                const submitEvent = new Event('submit', { cancelable: true });
-                newsletterForm.dispatchEvent(submitEvent);
             }
         });
         
@@ -211,15 +184,74 @@
                 // Show thanks message with a slight delay for better transition effect
                 setTimeout(() => {
                     thanksMessage.style.display = 'block';
+                    
+                    // Hide the thanks message after the animation completes
+                    setTimeout(() => {
+                        // After the fadeout animation completes, hide the element
+                        // and make the form visible again for future submissions
+                        thanksMessage.style.display = 'none';
+                        newsletterForm.style.display = 'block';
+                    }, 8000); // Animation duration + extra time (8 seconds total)
                 }, 300);
                 
-                // Reset form for future use (though it's hidden)
+                // Reset form for future use
                 newsletterForm.reset();
             })
             .catch(error => {
                 console.error('Error submitting form:', error);
             });
         });
+        
+        // Bandsintown API Integration
+        const artistName = "Alex Mick"; // Your artist name on Bandsintown
+        const apiKey = "f25920c2e82483a5fa65b85b38ac37be"; // Your API key
+        const tourContainer = document.getElementById('tour-container');
+        const noShowsMessage = document.getElementById('no-shows-message');
+        
+        // Fetch tour dates from Bandsintown
+        fetch(`https://rest.bandsintown.com/artists/${encodeURIComponent(artistName)}/events?app_id=${apiKey}`)
+            .then(response => response.json())
+            .then(data => {
+                // Check if there are any upcoming shows
+                if (data && data.length > 0) {
+                    // Hide the "no shows" message
+                    noShowsMessage.style.display = 'none';
+                    
+                    // Display each tour date
+                    data.forEach(event => {
+                        // Format the date
+                        const eventDate = new Date(event.datetime);
+                        const formattedDate = eventDate.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                        });
+                        
+                        // Create tour item element
+                        const tourItem = document.createElement('div');
+                        tourItem.className = 'tour-item';
+                        
+                        // Create tour item content
+                        tourItem.innerHTML = `
+                            <div class="tour-date">${formattedDate}</div>
+                            <div class="tour-location">${event.venue.city}, ${event.venue.country}</div>
+                            <div class="tour-venue">${event.venue.name}</div>
+                            <a href="${event.url}" target="_blank" class="tour-button">TICKETS</a>
+                        `;
+                        
+                        // Add to tour container
+                        tourContainer.appendChild(tourItem);
+                    });
+                } else {
+                    // If no shows, make sure the "no shows" message is visible
+                    noShowsMessage.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching tour dates:', error);
+                // Ensure the "no shows" message is visible in case of error
+                noShowsMessage.style.display = 'block';
+            });
         
         // Carousel Functionality remains unchanged
         // Carousel with true 1:1 trackpad movement
