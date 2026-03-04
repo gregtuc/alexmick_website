@@ -125,15 +125,16 @@ body {
     width: 100%;
     text-align: center;
     position: relative;
-    margin-bottom: 10vh;
-    min-height: 85vh;
+    margin-bottom: 6vh;
+    min-height: 70vh;
 }
 
 .featured-image {
     display: block;
-    width: 100%;
-    max-width: 800px;
+    width: 90%;
+    max-width: 650px;
     height: auto;
+    max-height: 55vh;
     margin: 0 auto;
     object-fit: contain;
     object-position: center;

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+W<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -124,6 +124,14 @@
             <div class="carousel-wrapper">
                 <div class="carousel-slides">
                     <div class="carousel-slide">
+                        <img src="images/never-really-enough.png" alt="Never Really Enough">
+                        <div class="music-info">
+                            <h3 class="music-title">NEVER REALLY ENOUGH</h3>
+                            <a href="https://ffm.to/77v67mx" class="listen-btn" target="_blank">get it now</a>
+                        </div>
+                    </div>
+
+                    <div class="carousel-slide">
                         <img src="images /cover arts for songs/feelitnow.jpg" alt="Feel It Now">
                         <div class="music-info">
                             <h3 class="music-title">FEEL IT NOW</h3>
@@ -167,7 +175,7 @@
             <a href="https://www.facebook.com/alexmickmusic/" class="social-link" target="_blank" aria-label="Facebook">
                 <i class="fab fa-facebook-f"></i>
             </a>
-            <a href="https://www.instagram.com/alexmickkk" class="social-link" target="_blank" aria-label="Instagram">
+            <a href="https://www.instagram.com/alexxmick" class="social-link" target="_blank" aria-label="Instagram">
                 <i class="fab fa-instagram"></i>
             </a>
             <a href="https://www.youtube.com/channel/UCb-A1wIrSOucbJNvGO6Qgxw" class="social-link" target="_blank" aria-label="YouTube">
@@ -551,6 +559,126 @@
         let blackDog = null;
         let frame = 0;
         let frameCount = 0;
+
+        // Drag-and-fling interaction for moving characters
+        let grabbedObject = null;
+        let grabOffsetX = 0;
+        let grabOffsetY = 0;
+        let lastPointerX = 0;
+        let lastPointerY = 0;
+        let lastPointerTime = 0;
+        const DRAG_RADIUS = 25; // How close you need to be to grab a character (in pixels)
+
+        function getDraggableObjects() {
+            const objects = [];
+            if (cometActive && comet) objects.push(comet);
+            if (guitaristActive && guitarist) objects.push(guitarist);
+            if (grayDogActive && grayDog) objects.push(grayDog);
+            if (blackDogActive && blackDog) objects.push(blackDog);
+            return objects;
+        }
+
+        function pointerDownOnCanvas(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            let closest = null;
+            let closestDist = DRAG_RADIUS;
+
+            getDraggableObjects().forEach(obj => {
+                const dx = x - obj.x;
+                const dy = y - obj.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < closestDist) {
+                    closest = obj;
+                    closestDist = dist;
+                }
+            });
+
+            if (closest) {
+                grabbedObject = closest;
+                grabbedObject.isGrabbed = true;
+                grabOffsetX = closest.x - x;
+                grabOffsetY = closest.y - y;
+                lastPointerX = x;
+                lastPointerY = y;
+                lastPointerTime = performance.now();
+            }
+        }
+
+        function pointerMoveOnCanvas(clientX, clientY) {
+            if (!grabbedObject) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            const now = performance.now();
+            const dt = Math.max((now - lastPointerTime) / 16.67, 0.001); // Roughly frames
+
+            // Move character with the pointer
+            grabbedObject.x = x + grabOffsetX;
+            grabbedObject.y = y + grabOffsetY;
+
+            // Estimate fling velocity
+            const vx = (x - lastPointerX) / dt * 0.25;
+            const vy = (y - lastPointerY) / dt * 0.25;
+
+            if (Number.isFinite(vx) && Number.isFinite(vy)) {
+                grabbedObject.speedX = vx;
+                grabbedObject.speedY = vy;
+
+                if ('facingRight' in grabbedObject) {
+                    grabbedObject.facingRight = grabbedObject.speedX >= 0;
+                }
+            }
+
+            lastPointerX = x;
+            lastPointerY = y;
+            lastPointerTime = now;
+        }
+
+        function pointerUpOnCanvas() {
+            if (grabbedObject) {
+                grabbedObject.isGrabbed = false;
+                grabbedObject = null;
+            }
+        }
+
+        // Mouse events (use window so it works even though canvas has pointer-events: none)
+        window.addEventListener('mousedown', (e) => {
+            pointerDownOnCanvas(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!grabbedObject) return;
+            e.preventDefault();
+            pointerMoveOnCanvas(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('mouseup', () => {
+            pointerUpOnCanvas();
+        });
+
+        // Touch events
+        window.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            if (!touch) return;
+            pointerDownOnCanvas(touch.clientX, touch.clientY);
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!grabbedObject) return;
+            const touch = e.touches[0];
+            if (!touch) return;
+            e.preventDefault();
+            pointerMoveOnCanvas(touch.clientX, touch.clientY);
+        }, { passive: false });
+
+        window.addEventListener('touchend', () => {
+            pointerUpOnCanvas();
+        });
         
         // MASTER INITIALIZATION FUNCTION
         function initializeEverything() {
@@ -817,16 +945,20 @@
             if (!cometActive || !comet) return;
             
             // Update comet position
-            comet.x += comet.speedX;
-            comet.y += comet.speedY;
+            if (!comet.isGrabbed) {
+                comet.x += comet.speedX;
+                comet.y += comet.speedY;
+            }
             comet.spin += comet.spinSpeed;
             
             // Bounce off edges
-            if (comet.x < 0 || comet.x > canvas.width) {
-                comet.speedX *= -1;
-            }
-            if (comet.y < 0 || comet.y > canvas.height) {
-                comet.speedY *= -1;
+            if (!comet.isGrabbed) {
+                if (comet.x < 0 || comet.x > canvas.width) {
+                    comet.speedX *= -1;
+                }
+                if (comet.y < 0 || comet.y > canvas.height) {
+                    comet.speedY *= -1;
+                }
             }
             
             // Draw comet tail (3-5 pixels trailing opposite to direction)
@@ -990,19 +1122,23 @@
             if (!guitaristActive || !guitarist) return;
             
             // Update guitarist position
-            guitarist.x += guitarist.speedX;
-            guitarist.y += guitarist.speedY;
+            if (!guitarist.isGrabbed) {
+                guitarist.x += guitarist.speedX;
+                guitarist.y += guitarist.speedY;
+            }
             guitarist.guitarAngle += 0.2; // Faster for guitar strumming
             guitarist.headBobAngle += 0.1; // Slower for head bobbing
             guitarist.shredFrame = (frameCount % 8 < 4) ? 0 : 1; // Alternate shred animation
             
             // Bounce off edges and flip direction for guitarist
-            if (guitarist.x < 10 || guitarist.x > canvas.width - 10) {
-                guitarist.speedX *= -1;
-                guitarist.facingRight = !guitarist.facingRight; // Flip direction
-            }
-            if (guitarist.y < 10 || guitarist.y > canvas.height - 10) {
-                guitarist.speedY *= -1;
+            if (!guitarist.isGrabbed) {
+                if (guitarist.x < 10 || guitarist.x > canvas.width - 10) {
+                    guitarist.speedX *= -1;
+                    guitarist.facingRight = !guitarist.facingRight; // Flip direction
+                }
+                if (guitarist.y < 10 || guitarist.y > canvas.height - 10) {
+                    guitarist.speedY *= -1;
+                }
             }
             
             const x = Math.floor(guitarist.x);
@@ -1136,18 +1272,22 @@
             if (!grayDogActive || !grayDog) return;
             
             // Update dog position
-            grayDog.x += grayDog.speedX;
-            grayDog.y += grayDog.speedY;
+            if (!grayDog.isGrabbed) {
+                grayDog.x += grayDog.speedX;
+                grayDog.y += grayDog.speedY;
+            }
             grayDog.tailWag += 0.1; // Speed of tail wagging
             grayDog.headBobAngle += 0.05; // Slower head bobbing
             
             // Bounce off edges and flip direction
-            if (grayDog.x < 10 || grayDog.x > canvas.width - 10) {
-                grayDog.speedX *= -1;
-                grayDog.facingRight = !grayDog.facingRight; // Flip direction
-            }
-            if (grayDog.y < 10 || grayDog.y > canvas.height - 10) {
-                grayDog.speedY *= -1;
+            if (!grayDog.isGrabbed) {
+                if (grayDog.x < 10 || grayDog.x > canvas.width - 10) {
+                    grayDog.speedX *= -1;
+                    grayDog.facingRight = !grayDog.facingRight; // Flip direction
+                }
+                if (grayDog.y < 10 || grayDog.y > canvas.height - 10) {
+                    grayDog.speedY *= -1;
+                }
             }
             
             const x = Math.floor(grayDog.x);
@@ -1243,18 +1383,22 @@
             if (!blackDogActive || !blackDog) return;
             
             // Update dog position
-            blackDog.x += blackDog.speedX;
-            blackDog.y += blackDog.speedY;
+            if (!blackDog.isGrabbed) {
+                blackDog.x += blackDog.speedX;
+                blackDog.y += blackDog.speedY;
+            }
             blackDog.tailWag += 0.15; // Speed of tail wagging (slightly faster)
             blackDog.headBobAngle += 0.07; // Faster head bobbing for excited small dog
             
             // Bounce off edges and flip direction
-            if (blackDog.x < 8 || blackDog.x > canvas.width - 8) {
-                blackDog.speedX *= -1;
-                blackDog.facingRight = !blackDog.facingRight; // Flip direction
-            }
-            if (blackDog.y < 8 || blackDog.y > canvas.height - 8) {
-                blackDog.speedY *= -1;
+            if (!blackDog.isGrabbed) {
+                if (blackDog.x < 8 || blackDog.x > canvas.width - 8) {
+                    blackDog.speedX *= -1;
+                    blackDog.facingRight = !blackDog.facingRight; // Flip direction
+                }
+                if (blackDog.y < 8 || blackDog.y > canvas.height - 8) {
+                    blackDog.speedY *= -1;
+                }
             }
             
             const x = Math.floor(blackDog.x);
