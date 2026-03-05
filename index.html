@@ -536,14 +536,6 @@
         canvas.style.zIndex = "0"; // Ensure canvas is behind all content
         document.querySelector('.stars-fallback').style.zIndex = "-1";
         
-        // Set canvas to full screen
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            // Recreate everything when resized
-            initializeEverything();
-        }
-        
         // Star types and properties - GLOBALS
         const stars = [];
         const planets = [];
@@ -562,6 +554,79 @@
         let blackDog = null;
         let frame = 0;
         let frameCount = 0;
+        const isMobileDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches || window.innerWidth <= 900;
+        let mobileStableHeight = window.innerHeight;
+        let resizeRafId = null;
+        let shootingStarIntervalId = null;
+        let kermitSchedulerStarted = false;
+        const swirlState = {
+            active: false,
+            startY: 0,
+            energy: 0
+        };
+
+        function getCanvasViewport(force = false) {
+            const width = window.innerWidth;
+            let height = window.innerHeight;
+
+            if (isMobileDevice) {
+                // Prevent iOS/Android browser chrome expand/collapse from constantly reflowing the starfield.
+                const widthChanged = Math.abs(width - (canvas.width || width)) > 120;
+                if (force || widthChanged) {
+                    mobileStableHeight = height;
+                } else {
+                    mobileStableHeight = Math.max(mobileStableHeight, height);
+                    height = mobileStableHeight;
+                }
+            }
+
+            return { width, height };
+        }
+
+        function scaleEntityPosition(entity, scaleX, scaleY) {
+            if (!entity) return;
+
+            if (typeof entity.x === 'number') entity.x *= scaleX;
+            if (typeof entity.y === 'number') entity.y *= scaleY;
+            if (typeof entity.startX === 'number') entity.startX *= scaleX;
+            if (typeof entity.currentX === 'number') entity.currentX *= scaleX;
+            if (typeof entity.endX === 'number') entity.endX *= scaleX;
+            if (typeof entity.startY === 'number') entity.startY *= scaleY;
+            if (typeof entity.currentY === 'number') entity.currentY *= scaleY;
+            if (typeof entity.endY === 'number') entity.endY *= scaleY;
+        }
+
+        function scaleSceneObjects(scaleX, scaleY) {
+            planets.forEach(planet => scaleEntityPosition(planet, scaleX, scaleY));
+            stars.forEach(star => scaleEntityPosition(star, scaleX, scaleY));
+            scaleEntityPosition(comet, scaleX, scaleY);
+            scaleEntityPosition(kermit, scaleX, scaleY);
+            scaleEntityPosition(guitarist, scaleX, scaleY);
+            scaleEntityPosition(grayDog, scaleX, scaleY);
+            scaleEntityPosition(blackDog, scaleX, scaleY);
+            scaleEntityPosition(shootingStar, scaleX, scaleY);
+        }
+
+        // Set canvas to full screen
+        function resizeCanvas({ reinitialize = false, force = false } = {}) {
+            const oldWidth = canvas.width || 1;
+            const oldHeight = canvas.height || 1;
+            const { width, height } = getCanvasViewport(force);
+
+            if (!force && width === canvas.width && height === canvas.height) {
+                return;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            if (reinitialize || stars.length === 0) {
+                initializeEverything();
+                return;
+            }
+
+            scaleSceneObjects(width / oldWidth, height / oldHeight);
+        }
 
         // Drag-and-fling interaction for moving characters
         let grabbedObject = null;
@@ -668,18 +733,38 @@
         window.addEventListener('touchstart', (e) => {
             const touch = e.touches[0];
             if (!touch) return;
+
+            if (isMobileDevice && !grabbedObject && e.touches.length === 1 && window.scrollY <= 0) {
+                swirlState.active = true;
+                swirlState.startY = touch.clientY;
+            }
+
             pointerDownOnCanvas(touch.clientX, touch.clientY);
         }, { passive: true });
 
         window.addEventListener('touchmove', (e) => {
-            if (!grabbedObject) return;
             const touch = e.touches[0];
             if (!touch) return;
+
+            if (isMobileDevice && swirlState.active && !grabbedObject && window.scrollY <= 0) {
+                const pullDistance = Math.max(0, touch.clientY - swirlState.startY);
+                if (pullDistance > 0) {
+                    swirlState.energy = Math.max(swirlState.energy, Math.min(18, pullDistance * 0.08));
+                }
+            }
+
+            if (!grabbedObject) return;
             e.preventDefault();
             pointerMoveOnCanvas(touch.clientX, touch.clientY);
         }, { passive: false });
 
         window.addEventListener('touchend', () => {
+            swirlState.active = false;
+            pointerUpOnCanvas();
+        });
+
+        window.addEventListener('touchcancel', () => {
+            swirlState.active = false;
             pointerUpOnCanvas();
         });
         
@@ -696,7 +781,9 @@
             createStars();
             
             // Schedule occasional shooting stars (much less frequent)
-            setInterval(createShootingStar, 15000); // REDUCED - only every 15 seconds
+            if (!shootingStarIntervalId) {
+                shootingStarIntervalId = setInterval(createShootingStar, 15000); // REDUCED - only every 15 seconds
+            }
             
             // Initialize persistent characters
             createCowComet(true); // Initialize cow with bouncing persistence
@@ -706,10 +793,12 @@
             createSpaceGrayDog(true); // Initialize gray dog with bouncing persistence
             createSpaceBlackDog(true); // Initialize black dog with bouncing persistence
             
-            // Initialize Kermit with random timing
-            // Initial delay before first Kermit appears (5-15 seconds)
-            const initialKermitDelay = 5000 + Math.random() * 10000;
-            setTimeout(scheduleNextKermit, initialKermitDelay);
+            // Initialize Kermit scheduler once
+            if (!kermitSchedulerStarted) {
+                const initialKermitDelay = 5000 + Math.random() * 10000; // Initial delay before first Kermit appears
+                setTimeout(scheduleNextKermit, initialKermitDelay);
+                kermitSchedulerStarted = true;
+            }
         }
         
         // Schedule the next Kermit appearance with random timing
@@ -758,6 +847,8 @@
                 stars.push({
                     x: Math.floor(Math.random() * canvas.width),
                     y: Math.floor(Math.random() * canvas.height),
+                    vx: 0,
+                    vy: 0,
                     type: starType,
                     blinks: Math.random() > 0.85, // REDUCED to 15% stars blink (from 30%)
                     pulses: Math.random() > 0.9, // REDUCED to 10% stars pulse (from 20%)
@@ -1613,8 +1704,36 @@
             
             // Draw all stars
             ctx.fillStyle = 'white';
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height * 0.35;
+            const swirlForce = swirlState.energy > 0 ? swirlState.energy * 0.012 : 0;
             
             stars.forEach(star => {
+                if (typeof star.vx !== 'number') star.vx = 0;
+                if (typeof star.vy !== 'number') star.vy = 0;
+
+                if (swirlForce > 0) {
+                    const dx = star.x - centerX;
+                    const dy = star.y - centerY;
+                    const dist = Math.max(20, Math.sqrt(dx * dx + dy * dy));
+                    const tangentX = -dy / dist;
+                    const tangentY = dx / dist;
+                    const radiusFalloff = Math.min(1, 220 / dist);
+                    const impulse = swirlForce * radiusFalloff;
+                    star.vx += tangentX * impulse;
+                    star.vy += tangentY * impulse;
+                }
+
+                star.x += star.vx;
+                star.y += star.vy;
+                star.vx *= 0.96;
+                star.vy *= 0.96;
+
+                if (star.x < 0) star.x += canvas.width;
+                if (star.x >= canvas.width) star.x -= canvas.width;
+                if (star.y < 0) star.y += canvas.height;
+                if (star.y >= canvas.height) star.y -= canvas.height;
+
                 // Determine if star is visible this frame
                 let isVisible = true; // Default to visible
                 
@@ -1649,6 +1768,11 @@
                 // Reset opacity
                 ctx.globalAlpha = 1.0;
             });
+
+            if (swirlState.energy > 0) {
+                swirlState.energy *= 0.9;
+                if (swirlState.energy < 0.05) swirlState.energy = 0;
+            }
             
             // Update and draw shooting star animation
             updateShootingStar();
@@ -1711,8 +1835,24 @@
         }
         
         // Initialize canvas size
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas({ reinitialize: true, force: true });
+
+        function queueResize(force = false) {
+            if (resizeRafId) cancelAnimationFrame(resizeRafId);
+            resizeRafId = requestAnimationFrame(() => {
+                resizeCanvas({ force });
+                resizeRafId = null;
+            });
+        }
+
+        window.addEventListener('resize', () => queueResize(false));
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => queueResize(false));
+        }
+        window.addEventListener('orientationchange', () => {
+            mobileStableHeight = window.innerHeight;
+            queueResize(true);
+        });
         
         // Start animation
         drawStars();
