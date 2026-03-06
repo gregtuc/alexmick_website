@@ -498,6 +498,7 @@
             previousX = startX;
             isDragging = true;
             carouselWrapper.style.cursor = 'grabbing';
+            carouselSlides.style.transition = 'none';
         }
         
         function drag(e) {
@@ -526,6 +527,7 @@
             startY = e.touches[0].clientY;
             previousX = startX;
             carouselTouchLock = null;
+            carouselSlides.style.transition = 'none';
         }
         
         function touchMove(e) {
@@ -555,6 +557,7 @@
         function touchEnd() {
             if (carouselTouchLock === 'vertical') {
                 carouselTouchLock = null;
+                carouselSlides.style.transition = 'transform 0.1s ease-out';
                 return;
             }
             snapToNearestSlide();
