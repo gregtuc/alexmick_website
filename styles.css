@@ -928,4 +928,12 @@ footer {
         -webkit-box-orient: vertical;
         text-wrap: balance;
     }
+
+    .music-info {
+        min-height: 6.9rem;
+    }
+
+    .listen-btn {
+        margin-top: auto;
+    }
 }
