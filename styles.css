@@ -881,8 +881,8 @@ footer {
 /* Final mobile hero overrides to keep latest sizing/positioning */
 @media (max-width: 768px) {
     .hero {
-        min-height: 76vh;
-        margin-bottom: 8vh;
+        min-height: 68vh;
+        margin-bottom: 2.5vh;
     }
 
     .title {
@@ -894,8 +894,13 @@ footer {
     .featured-image {
         width: 96%;
         max-width: 790px;
-        max-height: 60vh;
-        margin: 2.8vh auto 0;
-        padding-bottom: 2.5vh;
+        max-height: 56vh;
+        margin: 2vh auto 0;
+        padding-bottom: 0.8vh;
+    }
+
+    .newsletter {
+        padding: 1.6rem 0 2.2rem;
+        margin: 0.2rem 0 1.4rem 0;
     }
 }

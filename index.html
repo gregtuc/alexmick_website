@@ -733,6 +733,8 @@
         let lastPointerY = 0;
         let lastPointerTime = 0;
         const DRAG_RADIUS = isMobileDevice ? 38 : 25; // How close you need to be to grab a character (in pixels)
+        const FLING_MULTIPLIER = isMobileDevice ? 0.46 : 0.25;
+        const MAX_FLING_SPEED = isMobileDevice ? 12 : 9;
 
         function getDraggableObjects() {
             const objects = [];
@@ -1062,12 +1064,13 @@
             grabbedObject.y = y + grabOffsetY;
 
             // Estimate fling velocity
-            const vx = (x - lastPointerX) / dt * 0.25;
-            const vy = (y - lastPointerY) / dt * 0.25;
+            const vx = (x - lastPointerX) / dt * FLING_MULTIPLIER;
+            const vy = (y - lastPointerY) / dt * FLING_MULTIPLIER;
 
             if (Number.isFinite(vx) && Number.isFinite(vy)) {
-                grabbedObject.speedX = vx;
-                grabbedObject.speedY = vy;
+                // Blend velocity samples for a smoother, more app-like throw on touch.
+                grabbedObject.speedX = (grabbedObject.speedX || 0) * 0.45 + Math.max(-MAX_FLING_SPEED, Math.min(MAX_FLING_SPEED, vx)) * 0.55;
+                grabbedObject.speedY = (grabbedObject.speedY || 0) * 0.45 + Math.max(-MAX_FLING_SPEED, Math.min(MAX_FLING_SPEED, vy)) * 0.55;
 
                 if ('facingRight' in grabbedObject) {
                     grabbedObject.facingRight = grabbedObject.speedX >= 0;
@@ -1143,7 +1146,10 @@
             }
 
             pointerDownOnCanvas(touch.clientX, touch.clientY);
-        }, { passive: true });
+            if (grabbedObject || pointerTapState.bombCandidate || pointerTapState.brickCandidate) {
+                e.preventDefault();
+            }
+        }, { passive: false });
 
         window.addEventListener('touchmove', (e) => {
             if (brickBreaker.active) return;
