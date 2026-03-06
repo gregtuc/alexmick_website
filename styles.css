@@ -851,3 +851,25 @@ footer {
     0%, 100% { opacity: 0; }
     50% { opacity: 1; }
 } 
+
+/* Final mobile hero overrides to keep latest sizing/positioning */
+@media (max-width: 768px) {
+    .hero {
+        min-height: 76vh;
+        margin-bottom: 8vh;
+    }
+
+    .title {
+        font-size: clamp(3.2rem, 11vw, 4rem);
+        top: 0.8vh;
+        margin: 4vh 0 3.2vh;
+    }
+
+    .featured-image {
+        width: 96%;
+        max-width: 790px;
+        max-height: 60vh;
+        margin: 2.8vh auto 0;
+        padding-bottom: 2.5vh;
+    }
+}
