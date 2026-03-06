@@ -224,7 +224,7 @@ body {
 .newsletter {
     width: 100%;
     padding: 3rem 0;
-    margin: clamp(2.25rem, 7.5vh, 4.5rem) 0 2rem 0;
+    margin: clamp(0.5rem, 3.8vh, 2rem) 0 2rem 0;
     text-align: center;
 }
 
@@ -721,7 +721,7 @@ footer {
 
 /* Tour section */
 .tour-section {
-    padding: 4rem 2rem;
+    padding: 2.4rem 2rem 4.4rem;
     text-align: center;
 }
 
