@@ -234,7 +234,7 @@
             termsModal.style.display = 'none';
             document.body.style.overflow = 'auto'; // Re-enable scrolling
         });
-        
+
         // Close modal if clicked outside of content
         window.addEventListener('click', function(e) {
             if (e.target === termsModal) {
@@ -582,9 +582,9 @@
         let shootingStarIntervalId = null;
         let kermitSchedulerStarted = false;
         let backdropNuke = null;
-        const BOMB_NUKE_TAP_RADIUS = 20;
-        const BRICK_TAP_RADIUS = 20;
-        const POINTER_TAP_MAX_TRAVEL = 10;
+        const BOMB_NUKE_TAP_RADIUS = isMobileDevice ? 34 : 20;
+        const BRICK_TAP_RADIUS = isMobileDevice ? 34 : 20;
+        const POINTER_TAP_MAX_TRAVEL = isMobileDevice ? 18 : 10;
         const BOMB_HOLD_TRIGGER_MS = 1800;
         const BRICK_HOLD_TRIGGER_MS = 1000;
         const BOMB_RESPAWN_DELAY_MS = 10000;
@@ -621,6 +621,7 @@
             rafId: null,
             canvas: null,
             ctx: null,
+            touchBound: false,
             width: 900,
             height: 560,
             paddle: null,
@@ -715,7 +716,7 @@
         let lastPointerX = 0;
         let lastPointerY = 0;
         let lastPointerTime = 0;
-        const DRAG_RADIUS = 25; // How close you need to be to grab a character (in pixels)
+        const DRAG_RADIUS = isMobileDevice ? 38 : 25; // How close you need to be to grab a character (in pixels)
 
         function getDraggableObjects() {
             const objects = [];
@@ -2169,6 +2170,51 @@
             brickBreaker.canvas = document.getElementById('brickBreakerCanvas');
             if (!brickBreaker.canvas) return;
             brickBreaker.ctx = brickBreaker.canvas.getContext('2d');
+            bindBrickBreakerTouchControls();
+        }
+
+        function getBrickBreakerCanvasPoint(clientX, clientY) {
+            if (!brickBreaker.canvas) return null;
+            const rect = brickBreaker.canvas.getBoundingClientRect();
+            if (!rect.width || !rect.height) return null;
+
+            return {
+                x: ((clientX - rect.left) / rect.width) * brickBreaker.width,
+                y: ((clientY - rect.top) / rect.height) * brickBreaker.height
+            };
+        }
+
+        function moveBrickBreakerPaddleToClientX(clientX, clientY) {
+            if (!brickBreaker.active || !brickBreaker.paddle) return;
+            const point = getBrickBreakerCanvasPoint(clientX, clientY);
+            if (!point) return;
+            if (point.y < 0 || point.y > brickBreaker.height) return;
+
+            const halfPaddle = brickBreaker.paddle.width / 2;
+            const maxX = brickBreaker.width - brickBreaker.paddle.width;
+            brickBreaker.paddle.x = Math.min(maxX, Math.max(0, point.x - halfPaddle));
+        }
+
+        function bindBrickBreakerTouchControls() {
+            if (!brickBreaker.canvas || brickBreaker.touchBound) return;
+
+            brickBreaker.canvas.addEventListener('touchstart', (e) => {
+                if (!brickBreaker.active) return;
+                const touch = e.touches[0];
+                if (!touch) return;
+                moveBrickBreakerPaddleToClientX(touch.clientX, touch.clientY);
+                e.preventDefault();
+            }, { passive: false });
+
+            brickBreaker.canvas.addEventListener('touchmove', (e) => {
+                if (!brickBreaker.active) return;
+                const touch = e.touches[0];
+                if (!touch) return;
+                moveBrickBreakerPaddleToClientX(touch.clientX, touch.clientY);
+                e.preventDefault();
+            }, { passive: false });
+
+            brickBreaker.touchBound = true;
         }
 
         function resizeBrickBreakerCanvas() {
@@ -2262,7 +2308,7 @@
             ctx.fillText(`score: ${brickBreaker.score}`, 16, 20);
             ctx.fillText(`lives: ${brickBreaker.lives}`, brickBreaker.width - 100, 20);
             ctx.fillStyle = 'rgba(255,255,255,0.65)';
-            ctx.fillText('a/d or <- ->', Math.floor(brickBreaker.width / 2) - 56, 20);
+            ctx.fillText('drag or a/d or <- ->', Math.floor(brickBreaker.width / 2) - 80, 20);
         }
 
         function updateBrickBreaker() {

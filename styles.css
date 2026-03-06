@@ -546,7 +546,9 @@ footer {
     height: auto;
     max-height: 72vh;
     image-rendering: pixelated;
+    touch-action: none;
 }
+
 
 .social-links {
     display: flex;
@@ -607,6 +609,7 @@ footer {
         border-width: 1.5px;
     }
 }
+
 
 /* Modal styles */
 .modal {
