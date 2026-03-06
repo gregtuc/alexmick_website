@@ -371,6 +371,8 @@
         let currentTranslate = 0;
         let idleTimer = null;
         let lastDeltaX = 0; // For smoothing
+        let startY = 0;
+        let carouselTouchLock = null;
         
         // Always have a gentle transition for smoother movements
         carouselSlides.style.transition = 'transform 0.1s ease-out';
@@ -390,8 +392,8 @@
             carouselWrapper.addEventListener('mouseleave', dragEnd);
             
             // Touch events
-            carouselWrapper.addEventListener('touchstart', touchStart);
-            carouselWrapper.addEventListener('touchmove', touchMove);
+            carouselWrapper.addEventListener('touchstart', touchStart, { passive: true });
+            carouselWrapper.addEventListener('touchmove', touchMove, { passive: false });
             carouselWrapper.addEventListener('touchend', touchEnd);
             
             // Wheel event for trackpad
@@ -521,11 +523,25 @@
         // Touch Events
         function touchStart(e) {
             startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
             previousX = startX;
+            carouselTouchLock = null;
         }
         
         function touchMove(e) {
             const currentX = e.touches[0].clientX;
+            const currentY = e.touches[0].clientY;
+            const totalDx = Math.abs(currentX - startX);
+            const totalDy = Math.abs(currentY - startY);
+
+            if (!carouselTouchLock && (totalDx > 8 || totalDy > 8)) {
+                carouselTouchLock = totalDx > totalDy ? 'horizontal' : 'vertical';
+            }
+            if (carouselTouchLock === 'vertical') return;
+            if (carouselTouchLock === 'horizontal') {
+                e.preventDefault();
+            }
+
             const diff = (previousX - currentX) / 150; // Reduced movement sensitivity
             
             moveSlideExact(diff);
@@ -537,7 +553,12 @@
         }
         
         function touchEnd() {
+            if (carouselTouchLock === 'vertical') {
+                carouselTouchLock = null;
+                return;
+            }
             snapToNearestSlide();
+            carouselTouchLock = null;
         }
         
         function updateSlidePosition() {
@@ -752,9 +773,17 @@
         let lastPointerX = 0;
         let lastPointerY = 0;
         let lastPointerTime = 0;
+        let backgroundTouchActive = false;
         const DRAG_RADIUS = isMobileDevice ? 38 : 25; // How close you need to be to grab a character (in pixels)
         const FLING_MULTIPLIER = isMobileDevice ? 0.46 : 0.25;
         const MAX_FLING_SPEED = isMobileDevice ? 12 : 9;
+
+        function isForegroundInteractiveTarget(target) {
+            if (!(target instanceof Element)) return false;
+            return !!target.closest(
+                '.carousel-wrapper, .nav-arrow, .listen-btn, .tour-button, .newsletter, .newsletter-form, .terms-link, .modal, .modal-content, .social-links, .social-link, .music-grid, .tour-section, .brick-breaker-overlay, a, button, input, textarea, select, label'
+            );
+        }
 
         function getDraggableObjects() {
             const objects = [];
@@ -1149,6 +1178,7 @@
         // Mouse events (use window so it works even though canvas has pointer-events: none)
         window.addEventListener('mousedown', (e) => {
             if (brickBreaker.active) return;
+            if (isForegroundInteractiveTarget(e.target)) return;
             pointerDownOnCanvas(e.clientX, e.clientY);
         });
 
@@ -1170,6 +1200,11 @@
             if (brickBreaker.active) return;
             const touch = e.touches[0];
             if (!touch) return;
+            if (isForegroundInteractiveTarget(e.target)) {
+                backgroundTouchActive = false;
+                return;
+            }
+            backgroundTouchActive = true;
 
             if (isMobileDevice && !grabbedObject && e.touches.length === 1 && window.scrollY <= 0) {
                 swirlState.active = true;
@@ -1184,6 +1219,7 @@
 
         window.addEventListener('touchmove', (e) => {
             if (brickBreaker.active) return;
+            if (!backgroundTouchActive) return;
             const touch = e.touches[0];
             if (!touch) return;
 
@@ -1203,6 +1239,7 @@
 
         window.addEventListener('touchend', (e) => {
             if (brickBreaker.active) return;
+            if (!backgroundTouchActive) return;
             swirlState.active = false;
             const touch = e.changedTouches && e.changedTouches[0];
             if (touch) {
@@ -1210,12 +1247,15 @@
             } else {
                 pointerUpOnCanvas();
             }
+            backgroundTouchActive = false;
         });
 
         window.addEventListener('touchcancel', () => {
             if (brickBreaker.active) return;
+            if (!backgroundTouchActive) return;
             swirlState.active = false;
             pointerUpOnCanvas();
+            backgroundTouchActive = false;
         });
         
         // MASTER INITIALIZATION FUNCTION

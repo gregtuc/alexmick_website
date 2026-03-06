@@ -157,6 +157,7 @@ body {
     margin: 0 auto;
     max-width: 800px;
     width: 100%;
+    touch-action: pan-y;
 }
 
 .carousel-wrapper:active {
