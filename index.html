@@ -200,7 +200,7 @@
         <p>© 2024 alex mick</p>
     </footer>
 
-    <div class="brick-breaker-overlay" id="brickBreakerOverlay" aria-hidden="true">
+    <div class="brick-breaker-overlay" id="brickBreakerOverlay" aria-hidden="true" hidden>
         <div class="brick-breaker-shell">
             <div class="brick-breaker-header">
                 <span>brick breaker</span>
@@ -215,6 +215,14 @@
         const termsLink = document.getElementById('termsLink');
         const termsModal = document.getElementById('termsModal');
         const closeModal = document.getElementById('closeModal');
+        const brickBreakerOverlayEl = document.getElementById('brickBreakerOverlay');
+
+        // Force-hide overlay by default in case cached CSS misses new overlay rules.
+        if (brickBreakerOverlayEl) {
+            brickBreakerOverlayEl.style.display = 'none';
+            brickBreakerOverlayEl.setAttribute('aria-hidden', 'true');
+            brickBreakerOverlayEl.hidden = true;
+        }
         
         termsLink.addEventListener('click', function(e) {
             e.preventDefault();
@@ -2334,7 +2342,7 @@
             if (!brickBreaker.canvas || !brickBreaker.ctx) return;
             if (brickBreaker.active) return;
 
-            const overlay = document.getElementById('brickBreakerOverlay');
+            const overlay = brickBreakerOverlayEl || document.getElementById('brickBreakerOverlay');
             if (!overlay) return;
 
             brickBreaker.active = true;
@@ -2345,6 +2353,8 @@
             resetBrickBreakerRound();
             drawBrickBreaker();
 
+            overlay.hidden = false;
+            overlay.style.display = 'flex';
             overlay.classList.add('active');
             overlay.setAttribute('aria-hidden', 'false');
             document.body.style.overflow = 'hidden';
@@ -2362,9 +2372,11 @@
             brickBreakerKeys.left = false;
             brickBreakerKeys.right = false;
 
-            const overlay = document.getElementById('brickBreakerOverlay');
+            const overlay = brickBreakerOverlayEl || document.getElementById('brickBreakerOverlay');
             if (overlay) {
                 overlay.classList.remove('active');
+                overlay.style.display = 'none';
+                overlay.hidden = true;
                 overlay.setAttribute('aria-hidden', 'true');
             }
 
