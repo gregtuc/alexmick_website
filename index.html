@@ -210,6 +210,8 @@
         </div>
     </div>
 
+    <canvas id="brickBreakerCelebrationCanvas" class="brick-breaker-celebration-canvas" aria-hidden="true"></canvas>
+
     <script>
         // Terms Modal Functionality
         const termsLink = document.getElementById('termsLink');
@@ -217,6 +219,7 @@
         const closeModal = document.getElementById('closeModal');
         const brickBreakerOverlayEl = document.getElementById('brickBreakerOverlay');
         const brickBreakerCloseBtnEl = document.getElementById('brickBreakerCloseBtn');
+        const brickBreakerCelebrationCanvasEl = document.getElementById('brickBreakerCelebrationCanvas');
 
         // Force-hide overlay by default in case cached CSS misses new overlay rules.
         if (brickBreakerOverlayEl) {
@@ -585,6 +588,10 @@
         let grayDog = null;
         let blackDogActive = false;
         let blackDog = null;
+        let spaceBabyActive = false;
+        let spaceBaby = null;
+        const spaceBabySprite = new Image();
+        spaceBabySprite.src = 'assets/branding/favicon-32x32.png';
         let spaceBombActive = false;
         let spaceBomb = null;
         let spaceBrickActive = false;
@@ -638,6 +645,8 @@
             ctx: null,
             touchBound: false,
             activeTouchId: null,
+            victoryActive: false,
+            victoryTimeoutId: null,
             width: 900,
             height: 560,
             paddle: null,
@@ -649,10 +658,20 @@
             score: 0,
             lives: 3
         };
+        const brickBreakerCelebration = {
+            canvas: null,
+            ctx: null,
+            active: false,
+            particles: [],
+            rafId: null,
+            startTime: 0,
+            durationMs: 2200
+        };
         const brickBreakerKeys = {
             left: false,
             right: false
         };
+        const BRICK_BREAKER_ONE_HIT_WIN_PREVIEW = false;
 
         function getCanvasViewport(force = false) {
             const width = window.innerWidth;
@@ -693,6 +712,7 @@
             scaleEntityPosition(guitarist, scaleX, scaleY);
             scaleEntityPosition(grayDog, scaleX, scaleY);
             scaleEntityPosition(blackDog, scaleX, scaleY);
+            scaleEntityPosition(spaceBaby, scaleX, scaleY);
             scaleEntityPosition(spaceBomb, scaleX, scaleY);
             scaleEntityPosition(spaceBrick, scaleX, scaleY);
             scaleEntityPosition(shootingStar, scaleX, scaleY);
@@ -742,6 +762,7 @@
             if (guitaristActive && guitarist) objects.push(guitarist);
             if (grayDogActive && grayDog) objects.push(grayDog);
             if (blackDogActive && blackDog) objects.push(blackDog);
+            if (spaceBabyActive && spaceBaby) objects.push(spaceBaby);
             return objects;
         }
 
@@ -794,7 +815,7 @@
             });
 
             // Fling floating characters outward from the blast origin.
-            [comet, guitarist, grayDog, blackDog, spaceBrick].forEach(entity => {
+            [comet, guitarist, grayDog, blackDog, spaceBaby, spaceBrick].forEach(entity => {
                 if (!entity || typeof entity.x !== 'number' || typeof entity.y !== 'number') return;
                 if (typeof entity.speedX !== 'number' || typeof entity.speedY !== 'number') return;
                 const dx = entity.x - originX;
@@ -806,9 +827,19 @@
                 const ny = dy / dist;
                 const proximity = 1 - (dist / NUKE_ENTITY_BLAST_RADIUS);
                 const falloff = proximity * proximity; // Strong near center, quickly fades by radius edge.
-                const push = (Math.min(10, 220 / dist) + 1.5) * falloff;
+                const push = (Math.min(10, 220 / dist) + 1.8) * falloff;
                 entity.speedX += nx * push;
                 entity.speedY += ny * push;
+
+                // Ensure moving entities still get a visible shockwave redirect.
+                // If they already have high speed, guarantee a minimum outward component.
+                const radialSpeed = entity.speedX * nx + entity.speedY * ny;
+                const minOutwardSpeed = 1.35 + falloff * 6.2;
+                if (radialSpeed < minOutwardSpeed) {
+                    const correction = minOutwardSpeed - radialSpeed;
+                    entity.speedX += nx * correction;
+                    entity.speedY += ny * correction;
+                }
             });
 
             nukeAftermathFrames = NUKE_AFTERMATH_DURATION;
@@ -1211,6 +1242,7 @@
             // Initialize dogs with bouncing persistence
             createSpaceGrayDog(true); // Initialize gray dog with bouncing persistence
             createSpaceBlackDog(true); // Initialize black dog with bouncing persistence
+            createSpaceBaby(true); // Initialize floating baby icon with bouncing persistence
             createSpaceBomb(true); // Initialize bomb with bouncing persistence
             createSpaceBrick(true); // Initialize brick with bouncing persistence
             
@@ -1455,6 +1487,23 @@
             };
 
             spaceBrickActive = true;
+        }
+
+        function createSpaceBaby(persistent = false) {
+            if (spaceBabyActive && !persistent) return;
+
+            spaceBaby = {
+                x: Math.random() * (canvas.width * 0.8) + canvas.width * 0.1,
+                y: Math.random() * (canvas.height * 0.75) + canvas.height * 0.12,
+                speedX: (Math.random() * 0.24 + 0.1) * (Math.random() > 0.5 ? 1 : -1),
+                speedY: (Math.random() * 0.2 + 0.08) * (Math.random() > 0.5 ? 1 : -1),
+                facingRight: Math.random() > 0.5,
+                bobPhase: Math.random() * Math.PI * 2,
+                active: true,
+                persistent
+            };
+
+            spaceBabyActive = true;
         }
         
         function drawPlanets() {
@@ -2194,6 +2243,175 @@
             ctx.restore();
         }
 
+        function drawSpaceBaby() {
+            if (!spaceBabyActive || !spaceBaby) return;
+
+            if (!spaceBaby.isGrabbed) {
+                spaceBaby.x += spaceBaby.speedX;
+                spaceBaby.y += spaceBaby.speedY;
+            }
+            applyAftermathDamping(spaceBaby);
+            spaceBaby.bobPhase += 0.08;
+
+            if (!spaceBaby.isGrabbed) {
+                if (spaceBaby.x < 10 || spaceBaby.x > canvas.width - 10) {
+                    spaceBaby.speedX *= -1;
+                    spaceBaby.facingRight = !spaceBaby.facingRight;
+                }
+                if (spaceBaby.y < 10 || spaceBaby.y > canvas.height - 10) {
+                    spaceBaby.speedY *= -1;
+                }
+            }
+
+            const x = Math.floor(spaceBaby.x);
+            const y = Math.floor(spaceBaby.y + Math.sin(spaceBaby.bobPhase) * 1.2);
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(ENTITY_VISUAL_SCALE, ENTITY_VISUAL_SCALE);
+            const spriteSize = 18;
+            if (!spaceBaby.facingRight) {
+                ctx.scale(-1, 1);
+            }
+            if (spaceBabySprite.complete && spaceBabySprite.naturalWidth > 0) {
+                ctx.drawImage(spaceBabySprite, -Math.floor(spriteSize / 2), -Math.floor(spriteSize / 2), spriteSize, spriteSize);
+            } else {
+                // Fallback while image loads.
+                ctx.fillStyle = 'rgb(255, 230, 120)';
+                ctx.fillRect(-6, -6, 12, 12);
+            }
+
+            ctx.restore();
+        }
+
+        function initBrickBreakerCelebrationCanvas() {
+            if (brickBreakerCelebration.canvas && brickBreakerCelebration.ctx) return;
+            brickBreakerCelebration.canvas = brickBreakerCelebrationCanvasEl || document.getElementById('brickBreakerCelebrationCanvas');
+            if (!brickBreakerCelebration.canvas) return;
+            brickBreakerCelebration.ctx = brickBreakerCelebration.canvas.getContext('2d');
+        }
+
+        function resizeBrickBreakerCelebrationCanvas() {
+            if (!brickBreakerCelebration.canvas) return;
+            brickBreakerCelebration.canvas.width = Math.floor(window.innerWidth);
+            brickBreakerCelebration.canvas.height = Math.floor(window.innerHeight);
+        }
+
+        function playBrickBreakerWinJingle() {
+            const audioCtx = getRetroAudioContext();
+            if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+
+            const now = audioCtx.currentTime + 0.02;
+            const notes = [523.25, 659.25, 783.99, 1046.5];
+            notes.forEach((freq, index) => {
+                const start = now + index * 0.12;
+                const duration = 0.14;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(freq, start);
+                osc.frequency.linearRampToValueAtTime(freq * 1.015, start + duration);
+                gain.gain.setValueAtTime(0.0001, start);
+                gain.gain.exponentialRampToValueAtTime(0.09, start + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(start);
+                osc.stop(start + duration + 0.01);
+            });
+        }
+
+        function startBrickBreakerCelebration() {
+            initBrickBreakerCelebrationCanvas();
+            if (!brickBreakerCelebration.canvas || !brickBreakerCelebration.ctx) return;
+            resizeBrickBreakerCelebrationCanvas();
+
+            const celebrationCanvas = brickBreakerCelebration.canvas;
+            const celebrationCtx = brickBreakerCelebration.ctx;
+            const palette = ['#ff6b6b', '#ffd93d', '#6bcBff', '#8cff98', '#ff9ef3', '#ffffff'];
+            const count = isMobileDevice ? 150 : 220;
+
+            brickBreakerCelebration.particles = [];
+            for (let i = 0; i < count; i++) {
+                brickBreakerCelebration.particles.push({
+                    x: Math.random() * celebrationCanvas.width,
+                    y: -Math.random() * celebrationCanvas.height * 0.7,
+                    vx: (Math.random() - 0.5) * 2.4,
+                    vy: 1.6 + Math.random() * 2.8,
+                    size: 2 + Math.floor(Math.random() * 4),
+                    color: palette[Math.floor(Math.random() * palette.length)],
+                    life: 0.6 + Math.random() * 0.8
+                });
+            }
+
+            brickBreakerCelebration.active = true;
+            brickBreakerCelebration.startTime = performance.now();
+            celebrationCanvas.style.display = 'block';
+            celebrationCanvas.setAttribute('aria-hidden', 'false');
+            playBrickBreakerWinJingle();
+
+            const render = () => {
+                if (!brickBreakerCelebration.active || !brickBreakerCelebration.ctx || !brickBreakerCelebration.canvas) return;
+                const elapsed = performance.now() - brickBreakerCelebration.startTime;
+                const progress = Math.min(1, elapsed / brickBreakerCelebration.durationMs);
+                const fade = Math.max(0, 1 - progress * 0.85);
+
+                celebrationCtx.clearRect(0, 0, celebrationCanvas.width, celebrationCanvas.height);
+                brickBreakerCelebration.particles.forEach((p) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.045;
+                    if (p.x < -8) p.x = celebrationCanvas.width + 8;
+                    if (p.x > celebrationCanvas.width + 8) p.x = -8;
+                    if (p.y > celebrationCanvas.height + 16) {
+                        p.y = -10;
+                        p.vy = 1.4 + Math.random() * 1.8;
+                    }
+                    celebrationCtx.globalAlpha = Math.max(0.15, fade * p.life);
+                    celebrationCtx.fillStyle = p.color;
+                    celebrationCtx.fillRect(Math.floor(p.x), Math.floor(p.y), p.size, p.size);
+                });
+                celebrationCtx.globalAlpha = 1;
+
+                if (elapsed < brickBreakerCelebration.durationMs) {
+                    brickBreakerCelebration.rafId = requestAnimationFrame(render);
+                } else {
+                    stopBrickBreakerCelebration();
+                }
+            };
+
+            if (brickBreakerCelebration.rafId) {
+                cancelAnimationFrame(brickBreakerCelebration.rafId);
+            }
+            brickBreakerCelebration.rafId = requestAnimationFrame(render);
+        }
+
+        function stopBrickBreakerCelebration() {
+            brickBreakerCelebration.active = false;
+            if (brickBreakerCelebration.rafId) {
+                cancelAnimationFrame(brickBreakerCelebration.rafId);
+                brickBreakerCelebration.rafId = null;
+            }
+            if (brickBreakerCelebration.canvas && brickBreakerCelebration.ctx) {
+                brickBreakerCelebration.ctx.clearRect(0, 0, brickBreakerCelebration.canvas.width, brickBreakerCelebration.canvas.height);
+                brickBreakerCelebration.canvas.style.display = 'none';
+                brickBreakerCelebration.canvas.setAttribute('aria-hidden', 'true');
+            }
+            brickBreakerCelebration.particles = [];
+        }
+
+        function handleBrickBreakerVictory() {
+            if (brickBreaker.victoryActive) return;
+            brickBreaker.victoryActive = true;
+            startBrickBreakerCelebration();
+            brickBreaker.victoryTimeoutId = setTimeout(() => {
+                closeBrickBreaker();
+            }, brickBreakerCelebration.durationMs);
+        }
+
         function initBrickBreakerCanvas() {
             if (brickBreaker.canvas && brickBreaker.ctx) return;
             brickBreaker.canvas = document.getElementById('brickBreakerCanvas');
@@ -2422,6 +2640,10 @@
                     brick.alive = false;
                     brickBreaker.score += 10;
                     ball.vy *= -1;
+                    if (BRICK_BREAKER_ONE_HIT_WIN_PREVIEW) {
+                        handleBrickBreakerVictory();
+                        return;
+                    }
                     break;
                 }
             }
@@ -2438,10 +2660,8 @@
 
             const remaining = brickBreaker.bricks.some(brick => brick.alive);
             if (!remaining) {
-                createBrickBreakerBricks();
-                resetBrickBreakerRound();
-                ball.vx *= 1.06;
-                ball.vy *= 1.06;
+                handleBrickBreakerVictory();
+                return;
             }
 
             drawBrickBreaker();
@@ -2459,6 +2679,12 @@
             brickBreaker.active = true;
             brickBreaker.score = 0;
             brickBreaker.lives = 3;
+            brickBreaker.victoryActive = false;
+            if (brickBreaker.victoryTimeoutId) {
+                clearTimeout(brickBreaker.victoryTimeoutId);
+                brickBreaker.victoryTimeoutId = null;
+            }
+            stopBrickBreakerCelebration();
             resizeBrickBreakerCanvas();
             createBrickBreakerBricks();
             resetBrickBreakerRound();
@@ -2483,6 +2709,12 @@
             brickBreakerKeys.left = false;
             brickBreakerKeys.right = false;
             brickBreaker.activeTouchId = null;
+            brickBreaker.victoryActive = false;
+            if (brickBreaker.victoryTimeoutId) {
+                clearTimeout(brickBreaker.victoryTimeoutId);
+                brickBreaker.victoryTimeoutId = null;
+            }
+            stopBrickBreakerCelebration();
 
             const overlay = brickBreakerOverlayEl || document.getElementById('brickBreakerOverlay');
             if (overlay) {
@@ -2531,6 +2763,9 @@
         });
 
         window.addEventListener('resize', () => {
+            if (brickBreakerCelebration.active) {
+                resizeBrickBreakerCelebrationCanvas();
+            }
             if (!brickBreaker.active) return;
             resizeBrickBreakerCanvas();
             createBrickBreakerBricks();
@@ -2811,6 +3046,7 @@
             // Update and draw the dogs
             drawSpaceGrayDog();
             drawSpaceBlackDog();
+            drawSpaceBaby();
             drawSpaceBomb();
             drawSpaceBrick();
 
