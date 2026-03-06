@@ -540,6 +540,17 @@ footer {
     color: rgba(255, 255, 255, 0.9);
 }
 
+.brick-breaker-close-btn {
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: lowercase;
+    padding: 0.22rem 0.48rem;
+    cursor: pointer;
+}
+
 #brickBreakerCanvas {
     display: block;
     width: 100%;
@@ -607,6 +618,18 @@ footer {
         width: 10px;
         height: 10px;
         border-width: 1.5px;
+    }
+
+    .brick-breaker-overlay {
+        padding: 0.35rem;
+    }
+
+    .brick-breaker-shell {
+        width: 97vw;
+    }
+
+    #brickBreakerCanvas {
+        max-height: 80vh;
     }
 }
 
