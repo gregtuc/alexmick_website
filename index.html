@@ -178,7 +178,7 @@
             <a href="https://www.facebook.com/alexmickmusic/" class="social-link" target="_blank" aria-label="Facebook">
                 <i class="fab fa-facebook-f"></i>
             </a>
-            <a href="https://www.instagram.com/alexmickkk" class="social-link" target="_blank" aria-label="Instagram">
+            <a href="https://www.instagram.com/alexxmick" class="social-link" target="_blank" aria-label="Instagram">
                 <i class="fab fa-instagram"></i>
             </a>
             <a href="https://www.youtube.com/channel/UCb-A1wIrSOucbJNvGO6Qgxw" class="social-link" target="_blank" aria-label="YouTube">
@@ -199,6 +199,16 @@
         </div>
         <p>© 2024 alex mick</p>
     </footer>
+
+    <div class="brick-breaker-overlay" id="brickBreakerOverlay" aria-hidden="true">
+        <div class="brick-breaker-shell">
+            <div class="brick-breaker-header">
+                <span>brick breaker</span>
+                <span>esc to close</span>
+            </div>
+            <canvas id="brickBreakerCanvas" width="900" height="560"></canvas>
+        </div>
+    </div>
 
     <script>
         // Terms Modal Functionality
@@ -552,6 +562,10 @@
         let grayDog = null;
         let blackDogActive = false;
         let blackDog = null;
+        let spaceBombActive = false;
+        let spaceBomb = null;
+        let spaceBrickActive = false;
+        let spaceBrick = null;
         let frame = 0;
         let frameCount = 0;
         const isMobileDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches || window.innerWidth <= 900;
@@ -559,10 +573,60 @@
         let resizeRafId = null;
         let shootingStarIntervalId = null;
         let kermitSchedulerStarted = false;
+        let backdropNuke = null;
+        const BOMB_NUKE_TAP_RADIUS = 20;
+        const BRICK_TAP_RADIUS = 20;
+        const POINTER_TAP_MAX_TRAVEL = 10;
+        const BOMB_HOLD_TRIGGER_MS = 1800;
+        const BRICK_HOLD_TRIGGER_MS = 3000;
+        const BOMB_RESPAWN_DELAY_MS = 10000;
+        const NUKE_AFTERMATH_DURATION = 320;
+        const NUKE_ENTITY_BLAST_RADIUS = 260;
+        const NUKE_VISUAL_RADIUS = 220;
+        const ENTITY_VISUAL_SCALE = 1.14;
+        const PLANET_VISUAL_SCALE = 1.12;
+        let bombRespawnTimeoutId = null;
+        let nukeAftermathFrames = 0;
+        let retroAudioCtx = null;
+        const bombChargeAudioState = {
+            active: false,
+            lastStep: -1
+        };
+        const pointerTapState = {
+            active: false,
+            startTime: 0,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            moved: false,
+            bombCandidate: false,
+            brickCandidate: false
+        };
         const swirlState = {
             active: false,
             startY: 0,
             energy: 0
+        };
+        const brickBreaker = {
+            active: false,
+            rafId: null,
+            canvas: null,
+            ctx: null,
+            width: 900,
+            height: 560,
+            paddle: null,
+            ball: null,
+            bricks: [],
+            rows: 6,
+            cols: 10,
+            brickGap: 6,
+            score: 0,
+            lives: 3
+        };
+        const brickBreakerKeys = {
+            left: false,
+            right: false
         };
 
         function getCanvasViewport(force = false) {
@@ -604,7 +668,15 @@
             scaleEntityPosition(guitarist, scaleX, scaleY);
             scaleEntityPosition(grayDog, scaleX, scaleY);
             scaleEntityPosition(blackDog, scaleX, scaleY);
+            scaleEntityPosition(spaceBomb, scaleX, scaleY);
+            scaleEntityPosition(spaceBrick, scaleX, scaleY);
             scaleEntityPosition(shootingStar, scaleX, scaleY);
+            if (backdropNuke) {
+                backdropNuke.originX *= scaleX;
+                backdropNuke.originY *= scaleY;
+                backdropNuke.maxRadius *= Math.max(scaleX, scaleY);
+                backdropNuke.radius *= Math.max(scaleX, scaleY);
+            }
         }
 
         // Set canvas to full screen
@@ -646,10 +718,283 @@
             return objects;
         }
 
-        function pointerDownOnCanvas(clientX, clientY) {
+        function getCanvasPointer(clientX, clientY) {
+            if (typeof clientX !== 'number' || typeof clientY !== 'number') return null;
             const rect = canvas.getBoundingClientRect();
-            const x = clientX - rect.left;
-            const y = clientY - rect.top;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function trackTapMovement(clientX, clientY) {
+            if (!pointerTapState.active) return;
+            const point = getCanvasPointer(clientX, clientY);
+            if (!point) return;
+
+            const dx = point.x - pointerTapState.startX;
+            const dy = point.y - pointerTapState.startY;
+            pointerTapState.currentX = point.x;
+            pointerTapState.currentY = point.y;
+            // While charging bomb/brick easter eggs, allow pointer drift without canceling.
+            if (!pointerTapState.bombCandidate && !pointerTapState.brickCandidate) {
+                const movedDistanceSq = dx * dx + dy * dy;
+                if (movedDistanceSq > POINTER_TAP_MAX_TRAVEL * POINTER_TAP_MAX_TRAVEL) {
+                    pointerTapState.moved = true;
+                }
+            }
+        }
+
+        function triggerBackdropNuke(originX, originY) {
+            const maxRadius = NUKE_VISUAL_RADIUS;
+
+            backdropNuke = {
+                originX,
+                originY,
+                radius: 0,
+                maxRadius,
+                frame: 0,
+                duration: 90
+            };
+
+            stars.forEach(star => {
+                const dx = star.x - originX;
+                const dy = star.y - originY;
+                const dist = Math.max(10, Math.sqrt(dx * dx + dy * dy));
+                const force = Math.min(6, 120 / dist);
+                star.vx += (dx / dist) * force;
+                star.vy += (dy / dist) * force;
+            });
+
+            // Fling floating characters outward from the blast origin.
+            [comet, guitarist, grayDog, blackDog, spaceBrick].forEach(entity => {
+                if (!entity || typeof entity.x !== 'number' || typeof entity.y !== 'number') return;
+                if (typeof entity.speedX !== 'number' || typeof entity.speedY !== 'number') return;
+                const dx = entity.x - originX;
+                const dy = entity.y - originY;
+                const dist = Math.max(10, Math.sqrt(dx * dx + dy * dy));
+                if (dist > NUKE_ENTITY_BLAST_RADIUS) return;
+
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const proximity = 1 - (dist / NUKE_ENTITY_BLAST_RADIUS);
+                const falloff = proximity * proximity; // Strong near center, quickly fades by radius edge.
+                const push = (Math.min(10, 220 / dist) + 1.5) * falloff;
+                entity.speedX += nx * push;
+                entity.speedY += ny * push;
+            });
+
+            nukeAftermathFrames = NUKE_AFTERMATH_DURATION;
+        }
+
+        function applyAftermathDamping(entity) {
+            if (!entity || nukeAftermathFrames <= 0) return;
+            if (typeof entity.speedX !== 'number' || typeof entity.speedY !== 'number') return;
+
+            entity.speedX *= 0.996;
+            entity.speedY *= 0.996;
+
+            if (Math.abs(entity.speedX) < 0.02) entity.speedX = 0;
+            if (Math.abs(entity.speedY) < 0.02) entity.speedY = 0;
+        }
+
+        function hideBombAndScheduleRespawn() {
+            spaceBombActive = false;
+            spaceBomb = null;
+            pointerTapState.bombCandidate = false;
+
+            if (bombRespawnTimeoutId) {
+                clearTimeout(bombRespawnTimeoutId);
+            }
+
+            bombRespawnTimeoutId = setTimeout(() => {
+                createSpaceBomb(true);
+                bombRespawnTimeoutId = null;
+            }, BOMB_RESPAWN_DELAY_MS);
+        }
+
+        function getBrickHoldProgress() {
+            if (!pointerTapState.active || !pointerTapState.brickCandidate) {
+                return 0;
+            }
+
+            return Math.min(1, (performance.now() - pointerTapState.startTime) / BRICK_HOLD_TRIGGER_MS);
+        }
+
+        function getRetroAudioContext() {
+            if (retroAudioCtx) return retroAudioCtx;
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return null;
+            retroAudioCtx = new AudioContextClass();
+            return retroAudioCtx;
+        }
+
+        function playBombExplosionSound() {
+            const ctx = getRetroAudioContext();
+            if (!ctx) return;
+
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+
+            const now = ctx.currentTime;
+            const master = ctx.createGain();
+            master.gain.setValueAtTime(0.0001, now);
+            master.gain.exponentialRampToValueAtTime(0.35, now + 0.01);
+            master.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+            master.connect(ctx.destination);
+
+            // Main chiptune "boom" body.
+            const boomOsc = ctx.createOscillator();
+            const boomGain = ctx.createGain();
+            boomOsc.type = 'square';
+            boomOsc.frequency.setValueAtTime(180, now);
+            boomOsc.frequency.exponentialRampToValueAtTime(55, now + 0.28);
+            boomGain.gain.setValueAtTime(0.0001, now);
+            boomGain.gain.exponentialRampToValueAtTime(0.7, now + 0.015);
+            boomGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+            boomOsc.connect(boomGain);
+            boomGain.connect(master);
+            boomOsc.start(now);
+            boomOsc.stop(now + 0.32);
+
+            // Bright crack layer for retro bite.
+            const crackOsc = ctx.createOscillator();
+            const crackGain = ctx.createGain();
+            crackOsc.type = 'triangle';
+            crackOsc.frequency.setValueAtTime(920, now);
+            crackOsc.frequency.exponentialRampToValueAtTime(260, now + 0.09);
+            crackGain.gain.setValueAtTime(0.0001, now);
+            crackGain.gain.exponentialRampToValueAtTime(0.25, now + 0.005);
+            crackGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+            crackOsc.connect(crackGain);
+            crackGain.connect(master);
+            crackOsc.start(now);
+            crackOsc.stop(now + 0.12);
+
+            // Tiny noise burst for explosion texture.
+            const noiseLength = Math.floor(ctx.sampleRate * 0.12);
+            const noiseBuffer = ctx.createBuffer(1, noiseLength, ctx.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < noiseLength; i++) {
+                noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseLength);
+            }
+            const noiseSource = ctx.createBufferSource();
+            const noiseFilter = ctx.createBiquadFilter();
+            const noiseGain = ctx.createGain();
+            noiseSource.buffer = noiseBuffer;
+            noiseFilter.type = 'highpass';
+            noiseFilter.frequency.setValueAtTime(700, now);
+            noiseGain.gain.setValueAtTime(0.0001, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.22, now + 0.004);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+            noiseSource.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(master);
+            noiseSource.start(now);
+            noiseSource.stop(now + 0.12);
+        }
+
+        function playBombChargeBeep(step) {
+            const ctx = getRetroAudioContext();
+            if (!ctx) return;
+
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+
+            const now = ctx.currentTime;
+            const notes = [220, 247, 262, 294, 330, 349, 392, 440, 494, 523, 587, 659];
+            const clampedStep = Math.max(0, Math.min(notes.length - 1, step));
+            const freq = notes[clampedStep];
+            const progress = clampedStep / (notes.length - 1);
+            const duration = 0.07 - progress * 0.02; // Slightly faster blips as charge rises.
+
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.linearRampToValueAtTime(freq * 1.03, now + duration);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.05 + progress * 0.035, now + 0.004);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + duration + 0.01);
+        }
+
+        function updateBombChargeBeepLadder(holdProgress, isHoldingBomb) {
+            if (!isHoldingBomb) {
+                bombChargeAudioState.active = false;
+                bombChargeAudioState.lastStep = -1;
+                return;
+            }
+
+            if (!bombChargeAudioState.active) {
+                bombChargeAudioState.active = true;
+                bombChargeAudioState.lastStep = -1;
+            }
+
+            const stepCount = 12;
+            const currentStep = Math.min(stepCount - 1, Math.floor(holdProgress * stepCount));
+            if (currentStep > bombChargeAudioState.lastStep) {
+                for (let s = bombChargeAudioState.lastStep + 1; s <= currentStep; s++) {
+                    playBombChargeBeep(s);
+                }
+                bombChargeAudioState.lastStep = currentStep;
+            }
+        }
+
+        function getBombHoldProgress() {
+            if (!pointerTapState.active || !pointerTapState.bombCandidate) {
+                return 0;
+            }
+
+            return Math.min(1, (performance.now() - pointerTapState.startTime) / BOMB_HOLD_TRIGGER_MS);
+        }
+
+        function pointerDownOnCanvas(clientX, clientY) {
+            const point = getCanvasPointer(clientX, clientY);
+            if (!point) return;
+
+            const x = point.x;
+            const y = point.y;
+
+            pointerTapState.active = true;
+            pointerTapState.startTime = performance.now();
+            pointerTapState.startX = x;
+            pointerTapState.startY = y;
+            pointerTapState.currentX = x;
+            pointerTapState.currentY = y;
+            pointerTapState.moved = false;
+            pointerTapState.bombCandidate = false;
+            pointerTapState.brickCandidate = false;
+
+            let bombDist = Infinity;
+            let brickDist = Infinity;
+            if (spaceBombActive && spaceBomb) {
+                const bombDx = x - spaceBomb.x;
+                const bombDy = y - spaceBomb.y;
+                bombDist = Math.sqrt(bombDx * bombDx + bombDy * bombDy);
+            }
+            if (spaceBrickActive && spaceBrick) {
+                const brickDx = x - spaceBrick.x;
+                const brickDy = y - spaceBrick.y;
+                brickDist = Math.sqrt(brickDx * brickDx + brickDy * brickDy);
+            }
+
+            const bombInRange = bombDist <= BOMB_NUKE_TAP_RADIUS;
+            const brickInRange = brickDist <= BRICK_TAP_RADIUS;
+            if (bombInRange && (!brickInRange || bombDist <= brickDist)) {
+                pointerTapState.bombCandidate = true;
+            } else if (brickInRange) {
+                pointerTapState.brickCandidate = true;
+            }
+
+            if (pointerTapState.bombCandidate || pointerTapState.brickCandidate) {
+                return;
+            }
 
             let closest = null;
             let closestDist = DRAG_RADIUS;
@@ -678,9 +1023,11 @@
         function pointerMoveOnCanvas(clientX, clientY) {
             if (!grabbedObject) return;
 
-            const rect = canvas.getBoundingClientRect();
-            const x = clientX - rect.left;
-            const y = clientY - rect.top;
+            const point = getCanvasPointer(clientX, clientY);
+            if (!point) return;
+
+            const x = point.x;
+            const y = point.y;
 
             const now = performance.now();
             const dt = Math.max((now - lastPointerTime) / 16.67, 0.001); // Roughly frames
@@ -707,7 +1054,34 @@
             lastPointerTime = now;
         }
 
-        function pointerUpOnCanvas() {
+        function pointerUpOnCanvas(clientX, clientY) {
+            trackTapMovement(clientX, clientY);
+
+            const pointerDuration = performance.now() - pointerTapState.startTime;
+            const shouldNuke = pointerTapState.active &&
+                pointerTapState.bombCandidate &&
+                pointerDuration >= BOMB_HOLD_TRIGGER_MS &&
+                spaceBombActive &&
+                spaceBomb;
+            const shouldLaunchBrickBreaker = pointerTapState.active &&
+                pointerTapState.brickCandidate &&
+                pointerDuration >= BRICK_HOLD_TRIGGER_MS &&
+                spaceBrickActive &&
+                spaceBrick;
+
+            if (shouldNuke) {
+                playBombExplosionSound();
+                triggerBackdropNuke(spaceBomb.x, spaceBomb.y);
+                hideBombAndScheduleRespawn();
+            }
+            if (shouldLaunchBrickBreaker) {
+                openBrickBreaker();
+            }
+
+            pointerTapState.active = false;
+            pointerTapState.bombCandidate = false;
+            pointerTapState.brickCandidate = false;
+
             if (grabbedObject) {
                 grabbedObject.isGrabbed = false;
                 grabbedObject = null;
@@ -720,13 +1094,14 @@
         });
 
         window.addEventListener('mousemove', (e) => {
+            trackTapMovement(e.clientX, e.clientY);
             if (!grabbedObject) return;
             e.preventDefault();
             pointerMoveOnCanvas(e.clientX, e.clientY);
         });
 
-        window.addEventListener('mouseup', () => {
-            pointerUpOnCanvas();
+        window.addEventListener('mouseup', (e) => {
+            pointerUpOnCanvas(e.clientX, e.clientY);
         });
 
         // Touch events
@@ -746,6 +1121,8 @@
             const touch = e.touches[0];
             if (!touch) return;
 
+            trackTapMovement(touch.clientX, touch.clientY);
+
             if (isMobileDevice && swirlState.active && !grabbedObject && window.scrollY <= 0) {
                 const pullDistance = Math.max(0, touch.clientY - swirlState.startY);
                 if (pullDistance > 0) {
@@ -758,9 +1135,14 @@
             pointerMoveOnCanvas(touch.clientX, touch.clientY);
         }, { passive: false });
 
-        window.addEventListener('touchend', () => {
+        window.addEventListener('touchend', (e) => {
             swirlState.active = false;
-            pointerUpOnCanvas();
+            const touch = e.changedTouches && e.changedTouches[0];
+            if (touch) {
+                pointerUpOnCanvas(touch.clientX, touch.clientY);
+            } else {
+                pointerUpOnCanvas();
+            }
         });
 
         window.addEventListener('touchcancel', () => {
@@ -792,6 +1174,8 @@
             // Initialize dogs with bouncing persistence
             createSpaceGrayDog(true); // Initialize gray dog with bouncing persistence
             createSpaceBlackDog(true); // Initialize black dog with bouncing persistence
+            createSpaceBomb(true); // Initialize bomb with bouncing persistence
+            createSpaceBrick(true); // Initialize brick with bouncing persistence
             
             // Initialize Kermit scheduler once
             if (!kermitSchedulerStarted) {
@@ -1001,25 +1385,60 @@
             
             blackDogActive = true;
         }
+
+        // Create a floating 8-bit bomb that can trigger backdrop nuke
+        function createSpaceBomb(persistent = false) {
+            if (spaceBombActive && !persistent) return;
+
+            spaceBomb = {
+                x: Math.random() * (canvas.width * 0.8) + canvas.width * 0.1,
+                y: Math.random() * (canvas.height * 0.8) + canvas.height * 0.1,
+                speedX: (Math.random() * 0.24 + 0.12) * (Math.random() > 0.5 ? 1 : -1),
+                speedY: (Math.random() * 0.24 + 0.12) * (Math.random() > 0.5 ? 1 : -1),
+                fusePhase: Math.random() * Math.PI * 2,
+                wobblePhase: Math.random() * Math.PI * 2,
+                active: true,
+                persistent
+            };
+
+            spaceBombActive = true;
+        }
+
+        function createSpaceBrick(persistent = false) {
+            if (spaceBrickActive && !persistent) return;
+
+            spaceBrick = {
+                x: Math.random() * (canvas.width * 0.8) + canvas.width * 0.1,
+                y: Math.random() * (canvas.height * 0.8) + canvas.height * 0.1,
+                speedX: (Math.random() * 0.2 + 0.11) * (Math.random() > 0.5 ? 1 : -1),
+                speedY: (Math.random() * 0.2 + 0.11) * (Math.random() > 0.5 ? 1 : -1),
+                wobblePhase: Math.random() * Math.PI * 2,
+                active: true,
+                persistent
+            };
+
+            spaceBrickActive = true;
+        }
         
         function drawPlanets() {
             planets.forEach(planet => {
+                const drawSize = Math.max(1, planet.size * PLANET_VISUAL_SCALE);
                 ctx.fillStyle = planet.color;
                 
                 // Draw pixelated planets
-                for (let y = 0; y < planet.size; y++) {
-                    for (let x = 0; x < planet.size; x++) {
+                for (let y = 0; y < drawSize; y++) {
+                    for (let x = 0; x < drawSize; x++) {
                         // Skip some pixels for pixelated look
                         if (Math.random() > 0.8) continue;
                         
-                        const distX = x - planet.size/2;
-                        const distY = y - planet.size/2;
+                        const distX = x - drawSize/2;
+                        const distY = y - drawSize/2;
                         const dist = Math.sqrt(distX*distX + distY*distY);
                         
-                        if (dist <= planet.size/2) {
+                        if (dist <= drawSize/2) {
                             ctx.fillRect(
-                                Math.floor(planet.x + x - planet.size/2),
-                                Math.floor(planet.y + y - planet.size/2),
+                                Math.floor(planet.x + x - drawSize/2),
+                                Math.floor(planet.y + y - drawSize/2),
                                 1, 1
                             );
                         }
@@ -1029,7 +1448,7 @@
                 // Add planet name in tiny font
                 ctx.fillStyle = 'rgba(255,255,255,0.5)'; // Transparent white
                 ctx.font = '8px Arial';
-                ctx.fillText(planet.name, planet.x - 10, planet.y - planet.size/2 - 3);
+                ctx.fillText(planet.name, planet.x - 10, planet.y - drawSize/2 - 3);
             });
         }
         
@@ -1042,6 +1461,7 @@
                 comet.x += comet.speedX;
                 comet.y += comet.speedY;
             }
+            applyAftermathDamping(comet);
             comet.spin += comet.spinSpeed;
             
             // Bounce off edges
@@ -1054,12 +1474,16 @@
                 }
             }
             
+            ctx.save();
+            ctx.translate(Math.floor(comet.x), Math.floor(comet.y));
+            ctx.scale(ENTITY_VISUAL_SCALE, ENTITY_VISUAL_SCALE);
+
             // Draw comet tail (3-5 pixels trailing opposite to direction)
             ctx.fillStyle = 'rgba(255, 220, 100, 0.7)';
             const tailAngle = Math.atan2(comet.speedY, comet.speedX) + Math.PI; // Opposite to movement
             for (let i = 1; i <= 5; i++) {
-                const tailX = comet.x + Math.cos(tailAngle) * i * 1.2;
-                const tailY = comet.y + Math.sin(tailAngle) * i * 1.2;
+                const tailX = Math.cos(tailAngle) * i * 1.2;
+                const tailY = Math.sin(tailAngle) * i * 1.2;
                 
                 // Skip some pixels for pixelated effect
                 if (i % 2 === 0) {
@@ -1069,11 +1493,10 @@
             
             // Draw comet body (3x3 pixel)
             ctx.fillStyle = 'rgb(200, 200, 200)';
-            ctx.fillRect(Math.floor(comet.x)-1, Math.floor(comet.y)-1, 3, 3);
-            
+            ctx.fillRect(-1, -1, 3, 3);
+
             // Draw a bigger pixel cow on top - rotating with the spin value
             ctx.save();
-            ctx.translate(Math.floor(comet.x), Math.floor(comet.y));
             ctx.rotate(comet.spin);
             
             // Pixelated cow body (white with black spots)
@@ -1088,6 +1511,7 @@
             // Head
             ctx.fillRect(-6, -3, 3, 4); // larger head
             
+            ctx.restore();
             ctx.restore();
             
             // If not persistent and it's gone off screen, deactivate it
@@ -1133,6 +1557,7 @@
             // Save context for translation
             ctx.save();
             ctx.translate(x, y);
+            ctx.scale(ENTITY_VISUAL_SCALE, ENTITY_VISUAL_SCALE);
             
             // Space helmet (transparent bubble)
             ctx.fillStyle = 'rgba(200, 200, 255, 0.4)';
@@ -1219,6 +1644,7 @@
                 guitarist.x += guitarist.speedX;
                 guitarist.y += guitarist.speedY;
             }
+            applyAftermathDamping(guitarist);
             guitarist.guitarAngle += 0.2; // Faster for guitar strumming
             guitarist.headBobAngle += 0.1; // Slower for head bobbing
             guitarist.shredFrame = (frameCount % 8 < 4) ? 0 : 1; // Alternate shred animation
@@ -1261,6 +1687,7 @@
             // Save context for translation
             ctx.save();
             ctx.translate(x, y);
+            ctx.scale(ENTITY_VISUAL_SCALE, ENTITY_VISUAL_SCALE);
             
             // Draw your head with slight bob
             const headBob = Math.sin(guitarist.headBobAngle) * 1;
@@ -1369,6 +1796,7 @@
                 grayDog.x += grayDog.speedX;
                 grayDog.y += grayDog.speedY;
             }
+            applyAftermathDamping(grayDog);
             grayDog.tailWag += 0.1; // Speed of tail wagging
             grayDog.headBobAngle += 0.05; // Slower head bobbing
             
@@ -1389,6 +1817,7 @@
             // Save context for translation
             ctx.save();
             ctx.translate(x, y);
+            ctx.scale(ENTITY_VISUAL_SCALE, ENTITY_VISUAL_SCALE);
             
             // Draw the gray dog head with slight bob
             const headBob = Math.sin(grayDog.headBobAngle) * 0.5;
@@ -1480,6 +1909,7 @@
                 blackDog.x += blackDog.speedX;
                 blackDog.y += blackDog.speedY;
             }
+            applyAftermathDamping(blackDog);
             blackDog.tailWag += 0.15; // Speed of tail wagging (slightly faster)
             blackDog.headBobAngle += 0.07; // Faster head bobbing for excited small dog
             
@@ -1500,6 +1930,7 @@
             // Save context for translation
             ctx.save();
             ctx.translate(x, y);
+            ctx.scale(ENTITY_VISUAL_SCALE, ENTITY_VISUAL_SCALE);
             
             // Draw the black dog head with slight bob
             const headBob = Math.sin(blackDog.headBobAngle) * 0.8; // More pronounced bob
@@ -1576,6 +2007,411 @@
                 blackDog = null;
             }
         }
+
+        function drawSpaceBomb() {
+            if (!spaceBombActive || !spaceBomb) return;
+
+            const holdProgress = getBombHoldProgress();
+            const isHoldingBomb = pointerTapState.active && pointerTapState.bombCandidate;
+            updateBombChargeBeepLadder(holdProgress, isHoldingBomb);
+
+            if (isHoldingBomb) {
+                spaceBomb.x = pointerTapState.currentX;
+                spaceBomb.y = pointerTapState.currentY;
+                spaceBomb.speedX *= 0.85;
+                spaceBomb.speedY *= 0.85;
+            } else {
+                spaceBomb.x += spaceBomb.speedX;
+                spaceBomb.y += spaceBomb.speedY;
+            }
+            spaceBomb.fusePhase += 0.14 + holdProgress * 0.35;
+            spaceBomb.wobblePhase += 0.08;
+
+            if (!isHoldingBomb) {
+                if (spaceBomb.x < 10 || spaceBomb.x > canvas.width - 10) {
+                    spaceBomb.speedX *= -1;
+                }
+                if (spaceBomb.y < 10 || spaceBomb.y > canvas.height - 10) {
+                    spaceBomb.speedY *= -1;
+                }
+            }
+
+            const shakeRamp = Math.max(0, (holdProgress - 0.08) / 0.92);
+            const shakeAmount = shakeRamp * 4.5;
+            const shakeX = Math.sin(frameCount * 1.6) * shakeAmount + (Math.random() - 0.5) * shakeAmount * 0.8;
+            const shakeY = Math.cos(frameCount * 1.35) * shakeAmount * 0.75 + (Math.random() - 0.5) * shakeAmount * 0.6;
+            const x = Math.floor(spaceBomb.x + shakeX);
+            const y = Math.floor(spaceBomb.y + Math.sin(spaceBomb.wobblePhase) * 1.1 + shakeY);
+            const sparkThreshold = 0.2 - holdProgress * 0.9;
+            const sparkOn = Math.sin(spaceBomb.fusePhase * (1 + holdProgress * 2.5)) > sparkThreshold;
+            const bodyR = Math.floor(28 + holdProgress * 105);
+            const bodyG = Math.floor(28 + holdProgress * 22);
+            const bodyB = Math.floor(32 - holdProgress * 12);
+            const highlightR = Math.floor(85 + holdProgress * 90);
+            const highlightG = Math.floor(85 + holdProgress * 35);
+            const highlightB = Math.floor(96 - holdProgress * 25);
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(ENTITY_VISUAL_SCALE, ENTITY_VISUAL_SCALE);
+
+            // Bomb body (8-bit circle style)
+            ctx.fillStyle = `rgb(${bodyR}, ${bodyG}, ${bodyB})`;
+            ctx.fillRect(-4, -4, 8, 8);
+            ctx.fillRect(-5, -2, 1, 4);
+            ctx.fillRect(4, -2, 1, 4);
+            ctx.fillRect(-2, -5, 4, 1);
+            ctx.fillRect(-2, 4, 4, 1);
+
+            // Highlight
+            ctx.fillStyle = `rgb(${highlightR}, ${highlightG}, ${highlightB})`;
+            ctx.fillRect(-2, -2, 2, 2);
+
+            // Warning pulse while holding to detonate
+            if (holdProgress > 0.02) {
+                const pulse = 0.35 + Math.sin(frameCount * 0.25) * 0.25;
+                const warningAlpha = Math.max(0, Math.min(1, holdProgress * pulse));
+                ctx.fillStyle = `rgba(255, 70, 40, ${warningAlpha})`;
+                ctx.fillRect(-6, -6, 12, 12);
+            }
+
+            // Fuse
+            ctx.fillStyle = 'rgb(210, 170, 90)';
+            ctx.fillRect(1, -7, 1, 3);
+            ctx.fillRect(2, -8, 1, 1);
+
+            // Spark flicker
+            if (sparkOn) {
+                ctx.fillStyle = 'rgb(255, 230, 120)';
+                ctx.fillRect(3, -9, 1, 1);
+                ctx.fillStyle = 'rgb(255, 140, 60)';
+                ctx.fillRect(4, -8, 1, 1);
+                ctx.fillRect(2, -10, 1, 1);
+            }
+
+            if (holdProgress >= 1) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillRect(-1, -6, 2, 12);
+                ctx.fillRect(-6, -1, 12, 2);
+            }
+
+            ctx.restore();
+        }
+
+        function drawSpaceBrick() {
+            if (!spaceBrickActive || !spaceBrick) return;
+
+            const holdProgress = getBrickHoldProgress();
+            const isHoldingBrick = pointerTapState.active && pointerTapState.brickCandidate;
+
+            if (isHoldingBrick) {
+                spaceBrick.x = pointerTapState.currentX;
+                spaceBrick.y = pointerTapState.currentY;
+                spaceBrick.speedX *= 0.86;
+                spaceBrick.speedY *= 0.86;
+            } else {
+                spaceBrick.x += spaceBrick.speedX;
+                spaceBrick.y += spaceBrick.speedY;
+            }
+            applyAftermathDamping(spaceBrick);
+            spaceBrick.wobblePhase += 0.07 + holdProgress * 0.06;
+
+            if (!isHoldingBrick) {
+                if (spaceBrick.x < 12 || spaceBrick.x > canvas.width - 12) {
+                    spaceBrick.speedX *= -1;
+                }
+                if (spaceBrick.y < 12 || spaceBrick.y > canvas.height - 12) {
+                    spaceBrick.speedY *= -1;
+                }
+            }
+
+            const x = Math.floor(spaceBrick.x);
+            const y = Math.floor(spaceBrick.y + Math.sin(spaceBrick.wobblePhase) * 1.2);
+            const warningAlpha = holdProgress > 0 ? Math.min(0.55, holdProgress * 0.6) : 0;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(ENTITY_VISUAL_SCALE, ENTITY_VISUAL_SCALE);
+
+            if (warningAlpha > 0) {
+                ctx.fillStyle = `rgba(255, 235, 170, ${warningAlpha})`;
+                ctx.fillRect(-8, -4, 16, 8);
+            }
+
+            ctx.fillStyle = 'rgb(170, 86, 45)';
+            ctx.fillRect(-7, -3, 14, 6);
+            ctx.fillStyle = 'rgb(210, 124, 72)';
+            ctx.fillRect(-6, -2, 12, 4);
+            ctx.fillStyle = 'rgb(140, 62, 32)';
+            ctx.fillRect(-3, -3, 1, 6);
+            ctx.fillRect(2, -3, 1, 6);
+            ctx.fillRect(-7, 0, 14, 1);
+
+            if (holdProgress > 0.02) {
+                const pulse = 0.35 + Math.sin(frameCount * 0.22) * 0.2;
+                ctx.fillStyle = `rgba(255, 255, 255, ${holdProgress * pulse})`;
+                ctx.fillRect(-8, -4, 1, 8);
+                ctx.fillRect(7, -4, 1, 8);
+            }
+
+            ctx.restore();
+        }
+
+        function initBrickBreakerCanvas() {
+            if (brickBreaker.canvas && brickBreaker.ctx) return;
+            brickBreaker.canvas = document.getElementById('brickBreakerCanvas');
+            if (!brickBreaker.canvas) return;
+            brickBreaker.ctx = brickBreaker.canvas.getContext('2d');
+        }
+
+        function resizeBrickBreakerCanvas() {
+            if (!brickBreaker.canvas) return;
+            const maxWidth = Math.min(900, window.innerWidth - 32);
+            const width = Math.max(320, Math.floor(maxWidth));
+            const height = Math.floor(width * 0.62);
+            brickBreaker.canvas.width = width;
+            brickBreaker.canvas.height = height;
+            brickBreaker.width = width;
+            brickBreaker.height = height;
+        }
+
+        function resetBrickBreakerRound() {
+            brickBreaker.paddle = {
+                width: Math.max(72, brickBreaker.width * 0.14),
+                height: 12,
+                x: (brickBreaker.width / 2) - ((Math.max(72, brickBreaker.width * 0.14)) / 2),
+                y: brickBreaker.height - 34,
+                speed: 8
+            };
+            brickBreaker.ball = {
+                x: brickBreaker.width / 2,
+                y: brickBreaker.height - 52,
+                radius: 6,
+                vx: (Math.random() > 0.5 ? 1 : -1) * 3.6,
+                vy: -4.2
+            };
+        }
+
+        function createBrickBreakerBricks() {
+            brickBreaker.bricks = [];
+            const topPadding = 52;
+            const sidePadding = 20;
+            const totalGap = (brickBreaker.cols - 1) * brickBreaker.brickGap;
+            const brickWidth = Math.floor((brickBreaker.width - sidePadding * 2 - totalGap) / brickBreaker.cols);
+            const brickHeight = 16;
+
+            for (let row = 0; row < brickBreaker.rows; row++) {
+                for (let col = 0; col < brickBreaker.cols; col++) {
+                    brickBreaker.bricks.push({
+                        x: sidePadding + col * (brickWidth + brickBreaker.brickGap),
+                        y: topPadding + row * (brickHeight + brickBreaker.brickGap),
+                        width: brickWidth,
+                        height: brickHeight,
+                        alive: true,
+                        tone: row
+                    });
+                }
+            }
+        }
+
+        function drawBrickBreaker() {
+            const ctx = brickBreaker.ctx;
+            if (!ctx) return;
+
+            ctx.clearRect(0, 0, brickBreaker.width, brickBreaker.height);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+            ctx.fillRect(0, 0, brickBreaker.width, brickBreaker.height);
+
+            ctx.fillStyle = 'rgba(255,255,255,0.14)';
+            ctx.fillRect(12, 30, brickBreaker.width - 24, 2);
+
+            const palette = [
+                'rgb(255, 120, 80)',
+                'rgb(255, 164, 76)',
+                'rgb(255, 210, 95)',
+                'rgb(132, 214, 255)',
+                'rgb(140, 171, 255)',
+                'rgb(194, 140, 255)'
+            ];
+
+            brickBreaker.bricks.forEach(brick => {
+                if (!brick.alive) return;
+                ctx.fillStyle = palette[brick.tone % palette.length];
+                ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                ctx.fillRect(brick.x, brick.y, brick.width, 2);
+            });
+
+            ctx.fillStyle = 'white';
+            ctx.fillRect(brickBreaker.paddle.x, brickBreaker.paddle.y, brickBreaker.paddle.width, brickBreaker.paddle.height);
+
+            ctx.beginPath();
+            ctx.arc(brickBreaker.ball.x, brickBreaker.ball.y, brickBreaker.ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgb(255, 245, 170)';
+            ctx.fill();
+
+            ctx.font = '13px monospace';
+            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.fillText(`score: ${brickBreaker.score}`, 16, 20);
+            ctx.fillText(`lives: ${brickBreaker.lives}`, brickBreaker.width - 100, 20);
+            ctx.fillStyle = 'rgba(255,255,255,0.65)';
+            ctx.fillText('a/d or <- ->', Math.floor(brickBreaker.width / 2) - 56, 20);
+        }
+
+        function updateBrickBreaker() {
+            if (!brickBreaker.active) return;
+            const paddle = brickBreaker.paddle;
+            const ball = brickBreaker.ball;
+
+            if (brickBreakerKeys.left) paddle.x -= paddle.speed;
+            if (brickBreakerKeys.right) paddle.x += paddle.speed;
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > brickBreaker.width) paddle.x = brickBreaker.width - paddle.width;
+
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            if (ball.x - ball.radius <= 0 || ball.x + ball.radius >= brickBreaker.width) {
+                ball.vx *= -1;
+            }
+            if (ball.y - ball.radius <= 0) {
+                ball.vy *= -1;
+            }
+
+            if (
+                ball.y + ball.radius >= paddle.y &&
+                ball.y + ball.radius <= paddle.y + paddle.height + 3 &&
+                ball.x >= paddle.x &&
+                ball.x <= paddle.x + paddle.width &&
+                ball.vy > 0
+            ) {
+                const hit = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+                ball.vx = hit * 5.2;
+                ball.vy = -Math.abs(ball.vy);
+            }
+
+            for (let i = 0; i < brickBreaker.bricks.length; i++) {
+                const brick = brickBreaker.bricks[i];
+                if (!brick.alive) continue;
+
+                if (
+                    ball.x + ball.radius > brick.x &&
+                    ball.x - ball.radius < brick.x + brick.width &&
+                    ball.y + ball.radius > brick.y &&
+                    ball.y - ball.radius < brick.y + brick.height
+                ) {
+                    brick.alive = false;
+                    brickBreaker.score += 10;
+                    ball.vy *= -1;
+                    break;
+                }
+            }
+
+            if (ball.y - ball.radius > brickBreaker.height) {
+                brickBreaker.lives -= 1;
+                if (brickBreaker.lives <= 0) {
+                    brickBreaker.score = 0;
+                    brickBreaker.lives = 3;
+                    createBrickBreakerBricks();
+                }
+                resetBrickBreakerRound();
+            }
+
+            const remaining = brickBreaker.bricks.some(brick => brick.alive);
+            if (!remaining) {
+                createBrickBreakerBricks();
+                resetBrickBreakerRound();
+                ball.vx *= 1.06;
+                ball.vy *= 1.06;
+            }
+
+            drawBrickBreaker();
+            brickBreaker.rafId = requestAnimationFrame(updateBrickBreaker);
+        }
+
+        function openBrickBreaker() {
+            initBrickBreakerCanvas();
+            if (!brickBreaker.canvas || !brickBreaker.ctx) return;
+            if (brickBreaker.active) return;
+
+            const overlay = document.getElementById('brickBreakerOverlay');
+            if (!overlay) return;
+
+            brickBreaker.active = true;
+            brickBreaker.score = 0;
+            brickBreaker.lives = 3;
+            resizeBrickBreakerCanvas();
+            createBrickBreakerBricks();
+            resetBrickBreakerRound();
+            drawBrickBreaker();
+
+            overlay.classList.add('active');
+            overlay.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            brickBreaker.rafId = requestAnimationFrame(updateBrickBreaker);
+        }
+
+        function closeBrickBreaker() {
+            if (!brickBreaker.active) return;
+
+            brickBreaker.active = false;
+            if (brickBreaker.rafId) {
+                cancelAnimationFrame(brickBreaker.rafId);
+                brickBreaker.rafId = null;
+            }
+            brickBreakerKeys.left = false;
+            brickBreakerKeys.right = false;
+
+            const overlay = document.getElementById('brickBreakerOverlay');
+            if (overlay) {
+                overlay.classList.remove('active');
+                overlay.setAttribute('aria-hidden', 'true');
+            }
+
+            if (termsModal.style.display === 'flex') {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!brickBreaker.active) return;
+
+            const key = e.key.toLowerCase();
+            if (key === 'escape') {
+                e.preventDefault();
+                closeBrickBreaker();
+                return;
+            }
+
+            if (key === 'arrowleft' || key === 'a') {
+                brickBreakerKeys.left = true;
+                e.preventDefault();
+            }
+            if (key === 'arrowright' || key === 'd') {
+                brickBreakerKeys.right = true;
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (!brickBreaker.active) return;
+            const key = e.key.toLowerCase();
+            if (key === 'arrowleft' || key === 'a') {
+                brickBreakerKeys.left = false;
+            }
+            if (key === 'arrowright' || key === 'd') {
+                brickBreakerKeys.right = false;
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (!brickBreaker.active) return;
+            resizeBrickBreakerCanvas();
+            createBrickBreakerBricks();
+            resetBrickBreakerRound();
+        });
         
         // Draw a tiny pixel rocket
         function drawRocket() {
@@ -1689,6 +2525,64 @@
                 explosion = null;
             }
         }
+
+        function drawBackdropNuke() {
+            if (!backdropNuke) return;
+
+            backdropNuke.frame += 1;
+            const progress = Math.min(1, backdropNuke.frame / backdropNuke.duration);
+            const flashAlpha = Math.max(0, 0.95 - progress * 1.5);
+            const hazeAlpha = Math.max(0, 0.45 - progress * 0.45);
+            const ringAlpha = Math.max(0, 1 - progress);
+
+            backdropNuke.radius += backdropNuke.maxRadius / backdropNuke.duration;
+
+            ctx.save();
+
+            if (flashAlpha > 0) {
+                ctx.globalAlpha = flashAlpha;
+                ctx.fillStyle = 'rgb(255, 255, 255)';
+                ctx.beginPath();
+                ctx.arc(
+                    backdropNuke.originX,
+                    backdropNuke.originY,
+                    backdropNuke.radius * 0.8,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+
+            if (hazeAlpha > 0) {
+                ctx.globalAlpha = hazeAlpha;
+                ctx.fillStyle = 'rgb(255, 150, 80)';
+                ctx.beginPath();
+                ctx.arc(
+                    backdropNuke.originX,
+                    backdropNuke.originY,
+                    backdropNuke.radius,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+
+            if (ringAlpha > 0) {
+                ctx.globalAlpha = ringAlpha;
+                ctx.strokeStyle = 'rgba(255, 245, 215, 1)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(backdropNuke.originX, backdropNuke.originY, backdropNuke.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            ctx.globalAlpha = 1;
+            ctx.restore();
+
+            if (progress >= 1 || backdropNuke.radius >= backdropNuke.maxRadius) {
+                backdropNuke = null;
+            }
+        }
         
         function drawStars() {
             frameCount++;
@@ -1773,6 +2667,10 @@
                 swirlState.energy *= 0.9;
                 if (swirlState.energy < 0.05) swirlState.energy = 0;
             }
+
+            if (nukeAftermathFrames > 0) {
+                nukeAftermathFrames -= 1;
+            }
             
             // Update and draw shooting star animation
             updateShootingStar();
@@ -1789,6 +2687,11 @@
             // Update and draw the dogs
             drawSpaceGrayDog();
             drawSpaceBlackDog();
+            drawSpaceBomb();
+            drawSpaceBrick();
+
+            // Draw bomb-triggered nuke overlay on top of backdrop objects
+            drawBackdropNuke();
             
             // Request next frame
             requestAnimationFrame(drawStars);

@@ -93,11 +93,12 @@ body {
 /* Title */
 .title {
     font-family: 'UglyDave', sans-serif;
-    font-size: 3.5rem;
+    font-size: clamp(4rem, 7vw, 5.1rem);
     font-weight: normal;
     text-align: center;
-    margin: 5vh 0 4vh;
+    margin: 4vh 0 3.5vh;
     position: relative;
+    top: 0.8vh;
     z-index: 2;
     display: inline-block;
     transition: transform 0.3s ease-out;
@@ -125,20 +126,20 @@ body {
     width: 100%;
     text-align: center;
     position: relative;
-    margin-bottom: 6vh;
-    min-height: 70vh;
+    margin-bottom: 10vh;
+    min-height: 78vh;
 }
 
 .featured-image {
     display: block;
-    width: 90%;
-    max-width: 650px;
+    width: 96%;
+    max-width: 790px;
     height: auto;
-    max-height: 55vh;
-    margin: 0 auto;
+    max-height: 64vh;
+    margin: 2.8vh auto 0;
     object-fit: contain;
     object-position: center;
-    padding-bottom: 5vh;
+    padding-bottom: 2.5vh;
 }
 
 /* Music Grid/Carousel */
@@ -223,7 +224,7 @@ body {
 .newsletter {
     width: 100%;
     padding: 3rem 0;
-    margin: 0 0 2rem 0;
+    margin: clamp(2.25rem, 7.5vh, 4.5rem) 0 2rem 0;
     text-align: center;
 }
 
@@ -503,6 +504,48 @@ footer {
     text-align: center;
     margin-top: 2rem;
     font-size: 0.8rem;
+}
+
+.brick-breaker-overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.82);
+    z-index: 5000;
+    padding: 1rem;
+}
+
+.brick-breaker-overlay.active {
+    display: flex;
+}
+
+.brick-breaker-shell {
+    width: min(94vw, 940px);
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    background: rgba(7, 7, 7, 0.95);
+    box-shadow: 0 0 26px rgba(255, 255, 255, 0.12);
+}
+
+.brick-breaker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.38);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: lowercase;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+#brickBreakerCanvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 72vh;
+    image-rendering: pixelated;
 }
 
 .social-links {
